@@ -1,5 +1,6 @@
 package com.hackmit.twins.match
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,9 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -22,9 +25,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.KindredDisplayNumeral
 
 /**
  * The handoff screen: shows who your twin found, the one specific reason,
@@ -34,6 +38,9 @@ import coil.compose.AsyncImage
  * the actual conversation happens human-to-human, in person. See CLAUDE.md
  * guardrails: twins surface and suggest, they never decide/message/book on
  * a human's behalf.
+ *
+ * Styled after design/Kindred App.dc.html's "Ping" screen: amber eyebrow
+ * label, the matched name as an oversized headline, dark pill CTA.
  */
 @Composable
 fun MatchScreen(
@@ -44,54 +51,83 @@ fun MatchScreen(
 ) {
     var confirmed by remember { mutableStateOf(false) }
 
-    Scaffold { padding ->
+    Scaffold(containerColor = KindredColors.PageBackground) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(28.dp),
+            horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.Center,
         ) {
+            Text(
+                text = "Kindred found someone",
+                style = MaterialTheme.typography.labelLarge,
+                color = KindredColors.Accent,
+            )
+
             if (matchedPhotoUrl != null) {
                 AsyncImage(
                     model = matchedPhotoUrl,
                     contentDescription = "$matchedName's photo",
-                    modifier = Modifier.size(120.dp).clip(CircleShape),
+                    modifier = Modifier
+                        .padding(top = 20.dp)
+                        .size(56.dp)
+                        .clip(CircleShape),
                 )
             } else {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(120.dp),
-                )
+                Column(
+                    modifier = Modifier
+                        .padding(top = 20.dp)
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(KindredColors.TextPrimary),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        tint = KindredColors.OnDark,
+                    )
+                }
             }
 
             Text(
                 text = matchedName,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 16.dp),
+                style = KindredDisplayNumeral,
+                color = KindredColors.TextPrimary,
+                modifier = Modifier.padding(top = 18.dp),
             )
 
             Text(
                 text = reason,
                 style = MaterialTheme.typography.bodyLarge,
+                color = KindredColors.TextSecondary,
                 modifier = Modifier
-                    .padding(top = 8.dp)
+                    .padding(top = 18.dp, bottom = 40.dp)
                     .fillMaxWidth(),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
 
             Button(
-                modifier = Modifier.padding(top = 32.dp).fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 enabled = !confirmed,
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = KindredColors.TextPrimary,
+                    contentColor = KindredColors.OnDark,
+                    disabledContainerColor = KindredColors.TextPrimary,
+                    disabledContentColor = KindredColors.OnDark,
+                ),
                 onClick = {
                     confirmed = true
                     onSayHiConfirmed()
                 },
             ) {
-                Text(if (confirmed) "Nice — go say hi!" else "I'll say hi")
+                Text(
+                    text = if (confirmed) "Nice — go say hi!" else "I'll say hi",
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.hackmit.twins.onboarding
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,18 +10,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,6 +49,7 @@ import com.facebook.login.widget.LoginButton
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
+import com.hackmit.twins.ui.theme.KindredColors
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -130,19 +138,33 @@ fun OnboardingScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Build your twin") }) },
+        containerColor = KindredColors.PageBackground,
+        topBar = {
+            TopAppBar(
+                title = { Text("Build your twin") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = KindredColors.PageBackground,
+                ),
+            )
+        },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
             // Facebook Login: public_profile only, for name + photo on the
             // twin's card. Wrapped in AndroidView since the official SDK's
             // LoginButton is a plain Android View, not a Compose component.
-            Card(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                Column(modifier = Modifier.padding(12.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = KindredColors.CardSurface),
+                border = BorderStroke(1.dp, KindredColors.Border),
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         text = fbName?.let { "Signed in as $it" }
                             ?: "Optional: add your name + photo via Facebook",
                         style = MaterialTheme.typography.bodyMedium,
+                        color = KindredColors.TextSecondary,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     AndroidView(
@@ -197,10 +219,25 @@ fun OnboardingScreen(
                     onValueChange = { input = it },
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Type a message...") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = KindredColors.TextPrimary,
+                        unfocusedBorderColor = KindredColors.Border,
+                        focusedContainerColor = KindredColors.CardSurface,
+                        unfocusedContainerColor = KindredColors.CardSurface,
+                    ),
                 )
-                Spacer(modifier = Modifier.height(0.dp))
-                Button(onClick = { sendMessage(input) }, enabled = !isSending) {
-                    Text("Send")
+                Spacer(modifier = Modifier.width(10.dp))
+                Button(
+                    onClick = { sendMessage(input) },
+                    enabled = !isSending,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = KindredColors.TextPrimary,
+                        contentColor = KindredColors.OnDark,
+                    ),
+                ) {
+                    Text("Send", style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -211,11 +248,18 @@ fun OnboardingScreen(
 private fun ChatBubble(message: ChatMessage) {
     val alignment = if (message.fromUser) Alignment.CenterEnd else Alignment.CenterStart
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
-        Card {
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (message.fromUser) KindredColors.TextPrimary else KindredColors.CardSurface,
+            ),
+            border = if (message.fromUser) null else BorderStroke(1.dp, KindredColors.Border),
+        ) {
             Text(
                 text = message.text,
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.padding(14.dp),
                 style = MaterialTheme.typography.bodyMedium,
+                color = if (message.fromUser) KindredColors.OnDark else KindredColors.TextPrimary,
             )
         }
     }

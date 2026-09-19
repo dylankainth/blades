@@ -1,16 +1,20 @@
 package com.hackmit.twins.checkin
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.hackmit.twins.ui.theme.KindredColors
 
 /**
  * Demo-day reliability fallback for the BLE proximity trigger (see
@@ -50,21 +55,35 @@ fun CheckinScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Manual check-in") }) },
+        containerColor = KindredColors.PageBackground,
+        topBar = {
+            TopAppBar(
+                title = { Text("Manual check-in") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = KindredColors.PageBackground,
+                ),
+            )
+        },
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
                 text = "BLE not cooperating? Tap where you are and we'll use " +
                     "that instead.",
                 style = MaterialTheme.typography.bodyMedium,
+                color = KindredColors.TextSecondary,
             )
 
             locations.forEach { locationName ->
-                Button(
+                OutlinedButton(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, KindredColors.Border),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = KindredColors.TextPrimary,
+                    ),
                     onClick = {
                         val locationId = locationName.toLocationId()
                         CheckinRepository.recordCheckin(locationId, twinId)
@@ -72,7 +91,7 @@ fun CheckinScreen(
                         onCheckedIn(locationId)
                     },
                 ) {
-                    Text("I'm at $locationName")
+                    Text("I'm at $locationName", style = MaterialTheme.typography.labelLarge)
                 }
             }
 
@@ -80,6 +99,7 @@ fun CheckinScreen(
                 Text(
                     text = "Checked in at $it.",
                     style = MaterialTheme.typography.bodySmall,
+                    color = KindredColors.TextSecondary,
                 )
             }
         }
