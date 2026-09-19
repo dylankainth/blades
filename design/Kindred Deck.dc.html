@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
+
+<section data-label="Title" data-speaker-notes="Set the tone up front: warm, human, ambient — not a networking tool." style="width:1920px;height:1080px;background:oklch(14% 0.015 280);display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;overflow:hidden;font-family:'Space Grotesk',sans-serif;">
+<div style="position:absolute;top:80px;right:-180px;font-family:'Instrument Serif',serif;font-size:340px;color:oklch(93% 0.012 280 / 0.035);transform:rotate(6deg);white-space:nowrap;">Kindred</div>
+<div style="position:absolute;top:70px;left:80px;font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:oklch(58% 0.01 280);">Twin-class interface</div>
+<div style="font-family:'Instrument Serif',serif;font-weight:400;font-size:170px;color:oklch(93% 0.012 280);letter-spacing:-1px;z-index:1;">Kindred</div>
+<div style="font-family:'Space Grotesk',sans-serif;font-size:26px;color:oklch(65% 0.01 280);margin-top:20px;z-index:1;">Digital twins for human connection.</div>
+<div style="position:absolute;bottom:60px;right:80px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:oklch(50% 0.01 280);letter-spacing:2px;text-transform:uppercase;">A concept walkthrough</div>
+</section>
+
+<section data-label="Problem" data-speaker-notes="The premise: the best connections at events are missed by default." style="width:1920px;height:1080px;background:oklch(97% 0.01 60);display:flex;flex-direction:column;justify-content:center;padding:0 160px;font-family:'Space Grotesk',sans-serif;position:relative;box-sizing:border-box;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:oklch(55% 0.01 60);margin-bottom:24px;">01 — the problem</div>
+<div style="font-family:'Instrument Serif',serif;font-size:68px;color:oklch(18% 0.01 60);max-width:1400px;line-height:1.15;margin-bottom:56px;">The best connections at any event never happen.</div>
+<div style="display:flex;flex-direction:column;gap:20px;">
+<div style="display:flex;align-items:center;gap:18px;font-size:29px;color:oklch(32% 0.01 60);"><div style="width:8px;height:8px;background:oklch(60% 0.16 45);flex:none;"></div>You're two feet from the person you needed to meet.</div>
+<div style="display:flex;align-items:center;gap:18px;font-size:29px;color:oklch(32% 0.01 60);"><div style="width:8px;height:8px;background:oklch(60% 0.16 45);flex:none;"></div>Neither of you knows it.</div>
+<div style="display:flex;align-items:center;gap:18px;font-size:29px;color:oklch(32% 0.01 60);"><div style="width:8px;height:8px;background:oklch(60% 0.16 45);flex:none;"></div>The moment passes.</div>
+</div>
+<div style="margin-top:56px;font-family:'IBM Plex Mono',monospace;font-size:16px;color:oklch(50% 0.01 60);">Hackathons, conferences, parties — matched by proximity, not by who we are.</div>
+</section>
+
+<section data-label="The Twin" data-speaker-notes="Introduce the twin: a private, rich representation built from real context." style="width:1920px;height:1080px;background:oklch(14% 0.015 280);display:flex;align-items:center;justify-content:space-between;padding:0 160px;font-family:'Space Grotesk',sans-serif;box-sizing:border-box;">
+<div style="max-width:680px;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:oklch(58% 0.01 280);margin-bottom:24px;">02 — the twin</div>
+<div style="font-family:'Instrument Serif',serif;font-size:64px;color:oklch(93% 0.012 280);line-height:1.15;margin-bottom:28px;">Everyone gets a twin.</div>
+<div style="font-size:22px;color:oklch(65% 0.01 280);line-height:1.6;">Built from the things that actually say who you are — your GitHub, your social presence, even conversations you've had with AI before. Not a profile you fill out. A representation that already exists.</div>
+</div>
+<div style="width:420px;background:oklch(18% 0.016 280);padding:34px;border:1px solid oklch(30% 0.02 280);position:relative;">
+<div style="position:absolute;top:9px;left:9px;width:11px;height:11px;border-top:1.5px solid oklch(78% 0.16 150 / 0.7);border-left:1.5px solid oklch(78% 0.16 150 / 0.7);"></div>
+<div style="position:absolute;bottom:9px;right:9px;width:11px;height:11px;border-bottom:1.5px solid oklch(78% 0.16 150 / 0.7);border-right:1.5px solid oklch(78% 0.16 150 / 0.7);"></div>
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
+<div style="width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 30% 30%, oklch(85% 0.1 45), oklch(58% 0.16 45));flex:none;"></div>
+<div><div style="font-family:'Instrument Serif',serif;font-size:22px;color:oklch(93% 0.012 280);">Mia's Twin</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(55% 0.01 280);">always listening, never speaks for you</div></div>
+</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:oklch(55% 0.01 280);margin-bottom:12px;">Built from</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 12px;border:1px solid oklch(35% 0.02 280);color:oklch(70% 0.01 280);">GitHub</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 12px;border:1px solid oklch(35% 0.02 280);color:oklch(70% 0.01 280);">Past conversations</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 12px;border:1px solid oklch(35% 0.02 280);color:oklch(70% 0.01 280);">Social</div>
+</div>
+<div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:19px;color:oklch(85% 0.012 280);line-height:1.5;padding-left:14px;border-left:2px solid oklch(78% 0.16 150 / 0.5);">Has been quietly building a side project for 8 months.</div>
+</div>
+</section>
+
+<section data-label="Ambient" data-speaker-notes="Explain the ambient negotiation layer — this is happening while you talk to someone else." style="width:1920px;height:1080px;background:oklch(14% 0.015 280);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;font-family:'Space Grotesk',sans-serif;box-sizing:border-box;">
+<div style="position:absolute;top:70px;left:80px;font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:oklch(58% 0.01 280);">03 — always on</div>
+<div style="font-family:'Instrument Serif',serif;font-size:58px;color:oklch(93% 0.012 280);margin-bottom:10px;z-index:2;text-align:center;">While you talk to someone else, it's already working.</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:oklch(58% 0.01 280);margin-bottom:70px;z-index:2;">Hundreds of twins, quietly comparing notes across the room.</div>
+<svg width="1200" height="420" style="position:relative;z-index:1;">
+<line x1="240" y1="90" x2="560" y2="220" stroke="oklch(78% 0.16 150)" stroke-width="1.5" opacity="0.55"></line>
+<line x1="560" y1="220" x2="920" y2="110" stroke="oklch(75% 0.16 45)" stroke-width="1.5" opacity="0.6"></line>
+<line x1="560" y1="220" x2="380" y2="340" stroke="oklch(40% 0.01 280)" stroke-width="1" opacity="0.5"></line>
+<line x1="920" y1="110" x2="1040" y2="300" stroke="oklch(40% 0.01 280)" stroke-width="1" opacity="0.5"></line>
+<circle cx="240" cy="90" r="15" fill="oklch(60% 0.14 150)"></circle>
+<circle cx="560" cy="220" r="19" fill="oklch(65% 0.16 150)"></circle>
+<circle cx="920" cy="110" r="15" fill="oklch(70% 0.16 45)"></circle>
+<circle cx="380" cy="340" r="11" fill="oklch(40% 0.01 280)"></circle>
+<circle cx="1040" cy="300" r="11" fill="oklch(40% 0.01 280)"></circle>
+<text x="630" y="205" fill="oklch(70% 0.01 280)" font-family="IBM Plex Mono, monospace" font-size="14">negotiating</text>
+<text x="700" y="150" fill="oklch(75% 0.16 45)" font-family="IBM Plex Mono, monospace" font-size="14">found something</text>
+</svg>
+</section>
+
+<section data-label="The Ping" data-speaker-notes="The highest-value moment: a single, quiet signal, not a list of matches." style="width:1920px;height:1080px;background:oklch(97% 0.01 60);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;box-sizing:border-box;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:oklch(55% 0.01 60);margin-bottom:24px;">04 — the ping</div>
+<div style="font-family:'Instrument Serif',serif;font-size:56px;color:oklch(18% 0.01 60);margin-bottom:50px;">Then — a single, quiet signal.</div>
+<div style="width:440px;background:oklch(14% 0.015 280);padding:34px;border:1px solid oklch(30% 0.02 280);">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:oklch(78% 0.16 150);margin-bottom:20px;">Kindred found someone</div>
+<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+<div style="width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 30% 30%, oklch(85% 0.1 45), oklch(58% 0.16 45));flex:none;"></div>
+<div style="font-family:'Instrument Serif',serif;font-size:26px;color:oklch(93% 0.012 280);">Dev Patel</div>
+</div>
+<div style="font-size:17px;color:oklch(65% 0.01 280);line-height:1.5;margin-bottom:24px;">You both built something the world forgot to finish.</div>
+<div style="display:flex;gap:10px;">
+<div style="flex:1;text-align:center;padding:13px;background:oklch(75% 0.16 45);color:oklch(14% 0.015 280);font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;text-transform:uppercase;">See why</div>
+<div style="flex:1;text-align:center;padding:13px;border:1px solid oklch(35% 0.02 280);color:oklch(65% 0.01 280);font-family:'IBM Plex Mono',monospace;font-size:13px;">Not now</div>
+</div>
+</div>
+</section>
+
+<section data-label="The Why" data-speaker-notes="This is the core magic: a synthesized, non-obvious insight, plus a glimpse of the depth behind it." style="width:1920px;height:1080px;background:oklch(97% 0.01 60);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 140px;font-family:'Space Grotesk',sans-serif;box-sizing:border-box;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:oklch(55% 0.01 60);margin-bottom:24px;">05 — the why</div>
+<div style="font-family:'Instrument Serif',serif;font-size:50px;color:oklch(18% 0.01 60);margin-bottom:34px;text-align:center;">Not a shared interest. A perceptive thread.</div>
+<div style="max-width:1100px;font-family:'Instrument Serif',serif;font-style:italic;font-size:30px;line-height:1.5;color:oklch(24% 0.01 60);text-align:center;margin-bottom:46px;">"You both keep returning to the same unfinished idea — technology for people who are forgetting things — from two completely different directions, three years apart."</div>
+<div style="display:flex;gap:60px;align-items:center;">
+<div style="display:flex;flex-direction:column;gap:10px;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:oklch(55% 0.01 60);margin-bottom:4px;">Mia's context</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 14px;border:1px solid oklch(85% 0.01 60);color:oklch(55% 0.01 60);">3am commits</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 14px;border:1px solid oklch(60% 0.14 150);color:oklch(38% 0.1 150);font-weight:600;">tweet: grandmother's dementia</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 14px;border:1px solid oklch(85% 0.01 60);color:oklch(55% 0.01 60);">loves live music</div>
+</div>
+<svg width="90" height="60"><line x1="0" y1="30" x2="90" y2="30" stroke="oklch(55% 0.14 150)" stroke-width="2" stroke-dasharray="4 4"></line></svg>
+<div style="display:flex;flex-direction:column;gap:10px;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:oklch(55% 0.01 60);margin-bottom:4px;">Dev's context</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 14px;border:1px solid oklch(60% 0.14 150);color:oklch(38% 0.1 150);font-weight:600;">Discord: caregiving robot, freshman year</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 14px;border:1px solid oklch(85% 0.01 60);color:oklch(55% 0.01 60);">plays bass</div>
+<div style="font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 14px;border:1px solid oklch(85% 0.01 60);color:oklch(55% 0.01 60);">rock climbing</div>
+</div>
+</div>
+</section>
+
+<section data-label="The Opener" data-speaker-notes="Kill the approach anxiety: hand them the exact words to say." style="width:1920px;height:1080px;background:oklch(97% 0.01 60);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;box-sizing:border-box;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:oklch(55% 0.01 60);margin-bottom:24px;">06 — the opener</div>
+<div style="font-family:'Instrument Serif',serif;font-size:56px;color:oklch(18% 0.01 60);margin-bottom:50px;">And the exact words to start with.</div>
+<div style="width:540px;background:oklch(14% 0.015 280);padding:36px;border:1px solid oklch(30% 0.02 280);">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:oklch(58% 0.01 280);margin-bottom:18px;">Say this</div>
+<div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:22px;color:oklch(90% 0.012 280);line-height:1.5;margin-bottom:24px;">"I heard you built a caregiving robot freshman year — I've been stuck on something similar for my grandmother. Ten minutes of your brain?"</div>
+<div style="display:inline-block;padding:13px 24px;background:oklch(75% 0.16 45);color:oklch(14% 0.015 280);font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;text-transform:uppercase;">Copy</div>
+</div>
+</section>
+
+<section data-label="Consent" data-speaker-notes="Trust is the foundation: both people opt in, nothing hidden." style="width:1920px;height:1080px;background:oklch(97% 0.01 60);display:flex;flex-direction:column;justify-content:center;padding:0 160px;font-family:'Space Grotesk',sans-serif;box-sizing:border-box;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:oklch(55% 0.01 60);margin-bottom:24px;">07 — consent</div>
+<div style="font-family:'Instrument Serif',serif;font-size:64px;color:oklch(18% 0.01 60);line-height:1.15;margin-bottom:56px;max-width:1300px;">Both people opted in. Nothing is hidden.</div>
+<div style="display:flex;flex-direction:column;gap:22px;">
+<div style="display:flex;align-items:center;gap:18px;font-size:28px;color:oklch(32% 0.01 60);"><div style="width:8px;height:8px;background:oklch(55% 0.16 150);flex:none;"></div>See exactly what your twin knows about you.</div>
+<div style="display:flex;align-items:center;gap:18px;font-size:28px;color:oklch(32% 0.01 60);"><div style="width:8px;height:8px;background:oklch(55% 0.16 150);flex:none;"></div>See why you were matched, every time.</div>
+<div style="display:flex;align-items:center;gap:18px;font-size:28px;color:oklch(32% 0.01 60);"><div style="width:8px;height:8px;background:oklch(55% 0.16 150);flex:none;"></div>Turn it off, anytime, completely.</div>
+</div>
+</section>
+
+<section data-label="Beyond the Event" data-speaker-notes="The vision beyond the demo: a persistent, portable twin." style="width:1920px;height:1080px;background:oklch(14% 0.015 280);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 200px;font-family:'Space Grotesk',sans-serif;box-sizing:border-box;text-align:center;">
+<div style="font-family:'IBM Plex Mono',monospace;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:oklch(58% 0.01 280);margin-bottom:24px;">08 — beyond the event</div>
+<div style="font-family:'Instrument Serif',serif;font-size:64px;color:oklch(93% 0.012 280);line-height:1.15;margin-bottom:32px;">The event is just the first room.</div>
+<div style="font-size:24px;color:oklch(65% 0.01 280);line-height:1.6;max-width:900px;">Once your twin exists, it doesn't log off. It's a persistent, portable version of you — ready for the next room, the next job, the next introduction that matters.</div>
+</section>
+
+<section data-label="Closing" data-speaker-notes="End on the tagline, warm and quiet." style="width:1920px;height:1080px;background:oklch(14% 0.015 280);display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;overflow:hidden;font-family:'Space Grotesk',sans-serif;">
+<div style="position:absolute;bottom:-260px;left:-160px;font-family:'Instrument Serif',serif;font-size:280px;color:oklch(93% 0.012 280 / 0.035);white-space:nowrap;">Kindred</div>
+<div style="font-family:'Instrument Serif',serif;font-weight:400;font-size:130px;color:oklch(93% 0.012 280);letter-spacing:-1px;z-index:1;">Kindred</div>
+<div style="font-family:'Space Grotesk',sans-serif;font-size:24px;color:oklch(65% 0.01 280);margin-top:20px;z-index:1;">Your perceptive friend, everywhere you go.</div>
+</section>
+
+</x-import>
+</x-dc>
+</body>
+</html>

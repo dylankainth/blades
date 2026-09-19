@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@keyframes pulseDot{0%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(1.6)}100%{opacity:1;transform:scale(1)}}
+@keyframes cardIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes msgFade{0%{opacity:0;transform:translateY(3px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes orbitSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes ringPulseBig{0%{transform:scale(0.92);opacity:.45}100%{transform:scale(1.4);opacity:0}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:oklch(93% 0.004 90);display:flex;flex-direction:column;align-items:center;padding:56px 20px 70px;font-family:'Space Grotesk',sans-serif;box-sizing:border-box;gap:28px;">
+
+<div style="font-size:17px;font-weight:600;color:oklch(15% 0.005 90);letter-spacing:-0.3px;">Kindred</div>
+
+<div style="display:flex;gap:22px;">
+<sc-for list="{{ navItems }}" as="item" hint-placeholder-count="6">
+<div onClick="{{ item.onClick }}" style="{{ item.style }}">{{ item.label }}</div>
+</sc-for>
+</div>
+
+<div style="width:380px;max-width:100%;min-height:640px;background:oklch(99% 0.002 90);border-radius:38px;border:1px solid oklch(88% 0.005 90);padding:34px 30px;box-sizing:border-box;position:relative;overflow:hidden;animation:cardIn .3s ease;box-shadow:0 30px 70px oklch(15% 0.005 90 / 0.08);" key="{{ screen }}">
+
+<sc-if value="{{ showSmallAvatar }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;top:22px;right:22px;z-index:2;">{{ avatarSmall }}</div></sc-if>
+<sc-if value="{{ isAmbient }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;bottom:16px;left:0;right:0;height:200px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:10px;z-index:2;">{{ avatarBig }}<div style="font-size:12px;color:oklch(58% 0.005 90);">Actively engaging nearby</div></div></sc-if>
+
+<sc-if value="{{ isTwin }}" hint-placeholder-val="{{ true }}">
+<div style="margin-bottom:34px;">
+<div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);">Hackathon Valley</div><div style="font-size:13px;color:oklch(58% 0.005 90);">Live · Tonight</div>
+</div>
+<div style="font-size:104px;font-weight:700;color:oklch(15% 0.005 90);letter-spacing:-4px;line-height:0.9;margin-bottom:6px;">Mia</div>
+<div style="font-size:15px;color:oklch(55% 0.005 90);margin-bottom:34px;">Your twin, built from real context.</div>
+<div style="display:flex;gap:22px;margin-bottom:30px;overflow-x:auto;">
+<div><div style="font-size:12px;color:oklch(60% 0.005 90);margin-bottom:6px;">GitHub</div><div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);">On</div></div>
+<div><div style="font-size:12px;color:oklch(60% 0.005 90);margin-bottom:6px;">Chats</div><div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);">On</div></div>
+<div><div style="font-size:12px;color:oklch(60% 0.005 90);margin-bottom:6px;">LinkedIn</div><div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);">On</div></div>
+<div><div style="font-size:12px;color:oklch(60% 0.005 90);margin-bottom:6px;">Tonight</div><div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);">On</div></div>
+</div>
+<div style="height:1px;background:oklch(90% 0.005 90);margin-bottom:24px;"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;row-gap:22px;margin-bottom:24px;">
+<div><div style="font-size:13px;color:oklch(58% 0.005 90);margin-bottom:5px;">Focus</div><div style="font-size:18px;font-weight:600;color:oklch(15% 0.005 90);">Deep 1:1s</div></div>
+<div><div style="font-size:13px;color:oklch(58% 0.005 90);margin-bottom:5px;">Mode</div><div style="font-size:18px;font-weight:600;color:oklch(15% 0.005 90);">Listen only</div></div>
+<div><div style="font-size:13px;color:oklch(58% 0.005 90);margin-bottom:5px;">Building</div><div style="font-size:18px;font-weight:600;color:oklch(15% 0.005 90);">8 months, quiet</div></div>
+<div><div style="font-size:13px;color:oklch(58% 0.005 90);margin-bottom:5px;">Visibility</div><div style="font-size:18px;font-weight:600;color:oklch(15% 0.005 90);">You control it</div></div>
+</div>
+<div style="height:1px;background:oklch(90% 0.005 90);margin-bottom:20px;"></div>
+<div onClick="{{ goToKnows }}" style="font-size:14px;font-weight:600;color:oklch(15% 0.005 90);cursor:pointer;">View everything it knows →</div>
+</sc-if>
+
+<sc-if value="{{ isAmbient }}" hint-placeholder-val="{{ false }}">
+<div style="padding-bottom:210px;">
+<div style="margin-bottom:14px;">
+<div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);">Working quietly</div><div style="font-size:13px;color:oklch(58% 0.005 90);">No pings unless it's worth it</div>
+</div>
+<div style="font-size:104px;font-weight:700;color:oklch(15% 0.005 90);letter-spacing:-4px;line-height:0.9;margin-bottom:6px;">{{ nearbyCount }}</div>
+<div style="font-size:15px;color:oklch(55% 0.005 90);margin-bottom:30px;">twins negotiating nearby</div>
+<div style="height:1px;background:oklch(90% 0.005 90);margin-bottom:6px;"></div>
+<sc-for list="{{ negotiations }}" as="n" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid oklch(90% 0.005 90);">
+<div style="width:38px;height:38px;border-radius:50%;background:oklch(15% 0.005 90);color:oklch(99% 0.002 90);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none;">{{ n.initials }}</div>
+<div style="flex:1;min-width:0;">
+<div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);">{{ n.name }}</div>
+<div key="{{ n.msgKey }}" style="font-size:12.5px;color:oklch(58% 0.005 90);animation:msgFade .4s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ n.message }}</div>
+</div>
+<div style="font-size:24px;font-weight:700;color:{{ n.scoreColor }};flex:none;">{{ n.scoreLabel }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPing }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:580px;">
+<div style="font-size:13px;font-weight:600;color:oklch(68% 0.15 40);letter-spacing:0.3px;margin-bottom:22px;">Kindred found someone</div>
+<div style="width:56px;height:56px;border-radius:50%;background:oklch(15% 0.005 90);color:oklch(99% 0.002 90);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;margin-bottom:20px;">DP</div>
+<div style="font-size:64px;font-weight:700;color:oklch(15% 0.005 90);letter-spacing:-2.5px;line-height:1;margin-bottom:18px;">Dev<br/>Patel</div>
+<div style="font-size:16px;color:oklch(48% 0.005 90);line-height:1.5;margin-bottom:40px;">You both built something the world forgot to finish.</div>
+<div style="display:flex;gap:10px;width:100%;">
+<div onClick="{{ goToWhy }}" style="flex:1;text-align:center;padding:16px;background:oklch(15% 0.005 90);color:oklch(99% 0.002 90);border-radius:16px;font-size:14.5px;font-weight:600;cursor:pointer;">See why</div>
+<div style="flex:1;text-align:center;padding:16px;border:1px solid oklch(85% 0.005 90);color:oklch(45% 0.005 90);border-radius:16px;font-size:14.5px;cursor:pointer;">Not now</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isWhy }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:13px;font-weight:600;color:oklch(58% 0.005 90);margin-bottom:6px;">Why Dev</div>
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:22px;">
+<div style="font-size:96px;font-weight:700;color:oklch(15% 0.005 90);letter-spacing:-4px;line-height:0.9;">91%</div>
+<div style="font-size:15px;color:oklch(55% 0.005 90);">alignment</div>
+</div>
+<div style="font-size:19px;color:oklch(20% 0.005 90);line-height:1.5;margin-bottom:24px;">You both keep returning to the same unfinished idea — technology for people who are forgetting things — from two completely different directions, three years apart.</div>
+<div style="height:1px;background:oklch(90% 0.005 90);margin-bottom:20px;"></div>
+<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;">
+<div><div style="font-size:12.5px;color:oklch(58% 0.005 90);margin-bottom:4px;">Mia, two years ago</div><div style="font-size:15px;color:oklch(20% 0.005 90);">A tweet about building something for her grandmother's memory.</div></div>
+<div><div style="font-size:12.5px;color:oklch(58% 0.005 90);margin-bottom:4px;">Dev, freshman year</div><div style="font-size:15px;color:oklch(20% 0.005 90);">A buried message about a caregiving-robot prototype he never finished.</div></div>
+</div>
+<div onClick="{{ goToOpener }}" style="text-align:center;padding:16px;background:oklch(15% 0.005 90);color:oklch(99% 0.002 90);border-radius:16px;font-size:14.5px;font-weight:600;cursor:pointer;">Get the opener →</div>
+</sc-if>
+
+<sc-if value="{{ isOpener }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:13px;font-weight:600;color:oklch(58% 0.005 90);margin-bottom:20px;">Say this</div>
+<div style="font-size:26px;font-weight:500;color:oklch(15% 0.005 90);line-height:1.4;letter-spacing:-0.5px;margin-bottom:30px;">I heard you built a caregiving robot freshman year — I've been stuck on something similar for my grandmother. Ten minutes of your brain?</div>
+<div style="display:flex;gap:10px;margin-bottom:18px;">
+<div onClick="{{ copyOpener }}" style="flex:1;text-align:center;padding:15px;background:oklch(15% 0.005 90);color:oklch(99% 0.002 90);border-radius:16px;font-size:14px;font-weight:600;cursor:pointer;">{{ copyLabel }}</div>
+<div style="flex:1;text-align:center;padding:15px;border:1px solid oklch(85% 0.005 90);color:oklch(45% 0.005 90);border-radius:16px;font-size:14px;cursor:pointer;">Rewrite it</div>
+</div>
+<div style="font-size:13px;color:oklch(58% 0.005 90);">Just a start. Make it yours.</div>
+</sc-if>
+
+<sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);margin-bottom:6px;">Tonight</div>
+<div style="font-size:96px;font-weight:700;color:oklch(15% 0.005 90);letter-spacing:-4px;line-height:0.9;margin-bottom:6px;">2</div>
+<div style="font-size:15px;color:oklch(55% 0.005 90);margin-bottom:26px;">people worth remembering</div>
+<div style="height:1px;background:oklch(90% 0.005 90);margin-bottom:6px;"></div>
+<div style="display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-bottom:1px solid oklch(90% 0.005 90);">
+<div style="width:38px;height:38px;border-radius:50%;background:oklch(15% 0.005 90);color:oklch(99% 0.002 90);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none;">DP</div>
+<div style="flex:1;"><div style="display:flex;justify-content:space-between;"><div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);">Dev Patel</div><div style="font-size:12.5px;color:oklch(60% 0.005 90);">21:42</div></div><div style="font-size:13.5px;color:oklch(50% 0.005 90);line-height:1.4;margin-top:2px;">Forgotten side-projects for people who forget</div></div>
+</div>
+<div style="display:flex;align-items:flex-start;gap:14px;padding:16px 0;">
+<div style="width:38px;height:38px;border-radius:50%;background:oklch(15% 0.005 90);color:oklch(99% 0.002 90);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none;">SO</div>
+<div style="flex:1;"><div style="display:flex;justify-content:space-between;"><div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);">Sam O.</div><div style="font-size:12.5px;color:oklch(60% 0.005 90);">20:15</div></div><div style="font-size:13.5px;color:oklch(50% 0.005 90);line-height:1.4;margin-top:2px;">You both leave events early to actually build</div></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isKnows }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:15px;font-weight:600;color:oklch(15% 0.005 90);margin-bottom:6px;">Everything it knows</div>
+<div style="font-size:13px;color:oklch(58% 0.005 90);margin-bottom:24px;">Full transparency. Read-only. Yours to delete anytime.</div>
+
+<div style="font-size:12px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;color:oklch(58% 0.005 90);margin-bottom:12px;">Recent insights on you</div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:26px;">
+<sc-for list="{{ insights }}" as="ins" hint-placeholder-count="2">
+<div style="background:oklch(96% 0.004 90);border-radius:14px;padding:13px 15px;">
+<div style="font-size:11px;color:oklch(60% 0.005 90);margin-bottom:4px;">{{ ins.when }}</div>
+<div style="font-size:14.5px;color:oklch(18% 0.005 90);line-height:1.4;">{{ ins.text }}</div>
+</div>
+</sc-for>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+<div style="font-size:12px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;color:oklch(58% 0.005 90);">What it's learned</div>
+<div style="font-size:11.5px;color:oklch(62% 0.005 90);">{{ knowsCounter }}</div>
+</div>
+<div style="position:relative;height:172px;margin-bottom:12px;">
+<sc-for list="{{ stackCards }}" as="c" hint-placeholder-count="3">
+<div onClick="{{ c.onClick }}" style="{{ c.style }}">
+<div style="display:flex;justify-content:space-between;margin-bottom:8px;"><div style="font-size:11.5px;font-weight:600;color:oklch(58% 0.005 90);">{{ c.source }}</div><div style="font-size:11px;color:oklch(65% 0.005 90);">{{ c.date }}</div></div>
+<div style="font-size:15.5px;color:oklch(18% 0.005 90);line-height:1.45;">{{ c.text }}</div>
+</div>
+</sc-for>
+</div>
+<div style="font-size:12px;color:oklch(58% 0.005 90);margin-bottom:26px;">Tap the card to see the next one.</div>
+
+<div style="height:1px;background:oklch(90% 0.005 90);margin-bottom:20px;"></div>
+<div style="font-size:12px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;color:oklch(58% 0.005 90);margin-bottom:14px;">Connect more of you</div>
+<div style="display:flex;gap:16px;">
+<sc-for list="{{ socialList }}" as="soc" hint-placeholder-count="5">
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+<div onClick="{{ soc.onClick }}" style="{{ soc.circleStyle }}">{{ soc.mono }}</div>
+<div style="{{ soc.statusStyle }}">{{ soc.statusLabel }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen: 'twin', copied: false, tick: 0, nearbyCount: 14, eye: { x: 0, y: 0 }, blinking: false, talkFrame: 0, knowsIndex: 0, socials: { github: true, linkedin: true, twitter: false, instagram: false, discord: false } };
+
+  knowsFacts = [
+    { source: 'GitHub', date: '2 weeks ago', text: "Maintains a side project on assistive tools for memory care." },
+    { source: 'Past conversations', date: '2 years ago', text: "Talked about wanting to build something for her grandmother's dementia." },
+    { source: 'LinkedIn', date: 'Ongoing', text: 'Studies computer science; has worked on two prior hackathon teams.' },
+    { source: 'Tonight', date: 'Just now', text: 'Has spent most of the night in one-on-one conversations, not groups.' },
+    { source: 'Past conversations', date: '8 months ago', text: 'Mentioned being mid-way through a long, unfinished personal project.' },
+    { source: 'GitHub', date: '4 months ago', text: 'Contributes late at night, mostly alone, mostly on unfinished ideas.' },
+  ];
+
+  insights = [
+    { when: 'This week', text: 'Keeps circling back to projects about memory and forgetting.' },
+    { when: 'Tonight', text: "Talking to fewer people, longer — depth over volume." },
+  ];
+
+  socialAccounts = [
+    { key: 'github', label: 'GitHub', mono: 'GH', connected: true },
+    { key: 'linkedin', label: 'LinkedIn', mono: 'in', connected: true },
+    { key: 'twitter', label: 'X', mono: 'X', connected: false },
+    { key: 'instagram', label: 'Instagram', mono: 'IG', connected: false },
+    { key: 'discord', label: 'Discord', mono: 'DC', connected: false },
+  ];
+
+  negotiationData = [
+    { name: "Priya", initials: 'PK', score: 54, messages: ['Comparing hackathon histories', 'Shipped solo projects at 2am', 'Fit: moderate'] },
+    { name: "Jordan", initials: 'JL', score: 12, messages: ['Checking overlap on interests', 'Mostly divergent', 'Fit: low'] },
+    { name: "Dev", initials: 'DP', score: 91, messages: ['Cross-referencing old projects', 'Found a buried thread', 'Fit: strong'] },
+  ];
+
+  componentDidMount() {
+    this._timer = setInterval(() => {
+      this.setState(s => ({ tick: s.tick + 1, nearbyCount: 9 + Math.floor(Math.random() * 9) }));
+    }, 1900);
+    this._eyeTimer = setInterval(() => {
+      this.setState({ eye: { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1 } });
+    }, 1300);
+    this._blinkTimer = setInterval(() => {
+      this.setState({ blinking: true });
+      setTimeout(() => this.setState({ blinking: false }), 150);
+    }, 3400);
+    this._talkTimer = setInterval(() => {
+      this.setState(s => ({ talkFrame: (s.talkFrame + 1) % 4 }));
+    }, 220);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this._timer);
+    clearInterval(this._eyeTimer);
+    clearInterval(this._blinkTimer);
+    clearInterval(this._talkTimer);
+  }
+
+  buildAvatar(size, engaging) {
+    const s = size;
+    const eye = this.state.eye;
+    const blink = this.state.blinking;
+    const talkFrame = this.state.talkFrame;
+    const mouthWidths = engaging ? [0.11, 0.25, 0.16, 0.28] : [0.14, 0.14, 0.14, 0.14];
+    const mouthW = s * mouthWidths[talkFrame % mouthWidths.length];
+    const eyeShift = s * 0.05;
+    const eyeStyle = {
+      width: s * 0.09,
+      height: s * 0.22,
+      background: '#fff',
+      borderRadius: 999,
+      transform: `translate(${eye.x * eyeShift}px, ${eye.y * eyeShift}px) scaleY(${blink ? 0.08 : 1})`,
+      transition: 'transform .25s ease',
+    };
+    const rings = engaging
+      ? [0, 1].map(i =>
+          React.createElement('div', {
+            key: 'ring' + i,
+            style: {
+              position: 'absolute', inset: 0,
+              border: '1.5px solid rgba(0,0,0,0.15)',
+              borderRadius: s * 0.3,
+              animation: 'ringPulseBig 2.4s ease-out infinite',
+              animationDelay: i * 1.2 + 's',
+            },
+          })
+        )
+      : null;
+    const dots = engaging
+      ? [0, 1, 2].map(i =>
+          React.createElement(
+            'div',
+            {
+              key: 'orb' + i,
+              style: {
+                position: 'absolute', top: '50%', left: '50%',
+                width: s * (1.05 + i * 0.14), height: s * (1.05 + i * 0.14),
+                transform: 'translate(-50%,-50%)',
+                animation: `orbitSpin ${3 + i}s linear infinite`,
+                animationDelay: i * 0.4 + 's',
+              },
+            },
+            React.createElement('div', {
+              style: {
+                position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%,-50%)',
+                width: s * 0.09, height: s * 0.09, borderRadius: '50%',
+                background: i === 2 ? 'oklch(68% 0.15 40)' : '#bbb',
+              },
+            })
+          )
+        )
+      : null;
+    return React.createElement(
+      'div',
+      { style: { width: s, height: s, borderRadius: s * 0.3, background: '#141414', position: 'relative', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+      rings,
+      dots,
+      React.createElement(
+        'div',
+        { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: s * 0.1 } },
+        React.createElement(
+          'div',
+          { style: { display: 'flex', gap: s * 0.16 } },
+          React.createElement('div', { style: eyeStyle }),
+          React.createElement('div', { style: eyeStyle })
+        ),
+        React.createElement('div', { style: { width: mouthW, height: s * 0.045, background: '#fff', borderRadius: 999, transition: 'width .18s ease' } })
+      )
+    );
+  }
+
+  renderVals() {
+    const keys = [
+      { key: 'twin', label: 'Twin' },
+      { key: 'ambient', label: 'Ambient' },
+      { key: 'ping', label: 'Ping' },
+      { key: 'why', label: 'Why' },
+      { key: 'opener', label: 'Opener' },
+      { key: 'history', label: 'History' },
+      { key: 'knows', label: 'Knows' },
+    ];
+    const screen = this.state.screen;
+    const navItems = keys.map(k => {
+      const active = k.key === screen;
+      return {
+        key: k.key,
+        label: k.label,
+        onClick: () => this.setState({ screen: k.key, copied: false }),
+        style: {
+          fontSize: '14px',
+          fontWeight: active ? 600 : 400,
+          cursor: 'pointer',
+          color: active ? 'oklch(15% 0.005 90)' : 'oklch(62% 0.005 90)',
+          borderBottom: active ? '2px solid oklch(15% 0.005 90)' : '2px solid transparent',
+          paddingBottom: '4px',
+        },
+      };
+    });
+
+    const tick = this.state.tick;
+    const negotiations = this.negotiationData.map((n, i) => {
+      const msgIdx = (tick + i) % n.messages.length;
+      return {
+        name: n.name,
+        initials: n.initials,
+        message: n.messages[msgIdx],
+        msgKey: n.name + msgIdx,
+        scoreLabel: n.score + '%',
+        scoreColor: n.score >= 80 ? 'oklch(68% 0.15 40)' : 'oklch(15% 0.005 90)',
+      };
+    });
+
+    return {
+      navItems,
+      negotiations,
+      nearbyCount: this.state.nearbyCount,
+      screen,
+      showSmallAvatar: screen !== 'ambient',
+      avatarSmall: this.buildAvatar(36, false),
+      avatarBig: this.buildAvatar(118, true),
+      isTwin: screen === 'twin',
+      isAmbient: screen === 'ambient',
+      isPing: screen === 'ping',
+      isWhy: screen === 'why',
+      isOpener: screen === 'opener',
+      isHistory: screen === 'history',
+      isKnows: screen === 'knows',
+      goToWhy: () => this.setState({ screen: 'why' }),
+      goToOpener: () => this.setState({ screen: 'opener' }),
+      goToKnows: () => this.setState({ screen: 'knows' }),
+      insights: this.insights,
+      knowsCounter: (this.state.knowsIndex % this.knowsFacts.length) + 1 + ' / ' + this.knowsFacts.length,
+      stackCards: [0, 1, 2].map(i => {
+        const idx = (this.state.knowsIndex + i) % this.knowsFacts.length;
+        const f = this.knowsFacts[idx];
+        const layer = [
+          { transform: 'translateY(0px) rotate(0deg) scale(1)', zIndex: 3, opacity: 1, cursor: 'pointer' },
+          { transform: 'translateY(10px) rotate(-3deg) scale(0.96)', zIndex: 2, opacity: 0.85, cursor: 'default' },
+          { transform: 'translateY(18px) rotate(3deg) scale(0.92)', zIndex: 1, opacity: 0.6, cursor: 'default' },
+        ][i];
+        return {
+          key: idx + '-' + i,
+          source: f.source,
+          date: f.date,
+          text: f.text,
+          onClick: i === 0 ? () => this.setState(s => ({ knowsIndex: (s.knowsIndex + 1) % this.knowsFacts.length })) : undefined,
+          style: {
+            position: 'absolute', inset: 0, background: '#fff', border: '1px solid oklch(88% 0.005 90)',
+            borderRadius: '20px', padding: '22px', boxSizing: 'border-box',
+            boxShadow: '0 12px 30px oklch(15% 0.005 90 / 0.08)', transition: 'transform .25s ease, opacity .25s ease',
+            display: 'flex', flexDirection: 'column', ...layer,
+          },
+        };
+      }),
+      socialList: this.socialAccounts.map(a => {
+        const connected = this.state.socials[a.key];
+        return {
+          key: a.key,
+          mono: a.mono,
+          label: a.label,
+          statusLabel: connected ? 'Connected' : 'Connect',
+          onClick: () => this.setState(s => ({ socials: { ...s.socials, [a.key]: !s.socials[a.key] } })),
+          circleStyle: { width: '42px', height: '42px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, cursor: 'pointer', background: connected ? 'oklch(15% 0.005 90)' : 'oklch(94% 0.005 90)', color: connected ? '#fff' : 'oklch(40% 0.005 90)', border: connected ? 'none' : '1px solid oklch(85% 0.005 90)' },
+          statusStyle: { fontSize: '10.5px', color: connected ? 'oklch(15% 0.005 90)' : 'oklch(62% 0.005 90)', fontWeight: connected ? 600 : 400 },
+        };
+      }),
+      copyLabel: this.state.copied ? 'Copied ✓' : 'Copy',
+      copyOpener: () => {
+        const text = "I heard you built a caregiving robot freshman year — I've been stuck on something similar for my grandmother. Ten minutes of your brain?";
+        if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+        this.setState({ copied: true });
+        setTimeout(() => this.setState({ copied: false }), 1800);
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
