@@ -20,9 +20,16 @@ full product context.
   a single confirm action. No auto-generated intro message is ever sent.
 - `checkin/CheckinScreen.kt` — manual "I'm at booth X" fallback, writing to
   the same Firestore path as the BLE service, for demo-day reliability.
-- `MainActivity.kt` — Compose navigation (Onboarding → Home → Match/Checkin),
-  anonymous Firebase Auth for a stable per-device twinId, BLE permission
-  requests, and starting the foreground service.
+- `MainActivity.kt` — Compose navigation (Welcome → Sign In/Up → Onboarding
+  or Home → Match/Checkin), BLE permission requests, and starting the
+  foreground service (only after a successful sign-in/up).
+- `auth/` — real accounts (email/password + Google Sign-In) via Firebase
+  Auth, replacing the earlier anonymous-only model. "Build your twin" on
+  the welcome screen leads to Sign In; "I've already got one" leads to
+  Sign Up. Sign-in (email/password or Google) checks whether this account
+  already has a completed twin profile (`twins/{uid}.onboardingComplete`)
+  and routes to Home if so, Onboarding if not; a fresh email/password
+  sign-up always lands in Onboarding since the account is guaranteed new.
 
 ## Before this builds or runs
 
@@ -39,6 +46,12 @@ full product context.
    placeholder values for `facebook_app_id` / `facebook_client_token`.
    Replace with real values from developers.facebook.com. Login is scoped
    to `public_profile` only (name + photo, no email/friends/posting).
+3b. **Firebase Auth sign-in providers** — in the Firebase console
+   (Authentication → Sign-in method): enable **Email/Password**, and
+   enable **Google** (this also generates the "Web client ID" — copy it
+   into `res/values/strings.xml`'s `google_web_client_id`, replacing the
+   `TODO_...` placeholder). Without both of these, Sign In/Sign Up will
+   fail — see `auth/AuthManager.kt`.
 4. **Gradle wrapper jar** — `gradle/wrapper/gradle-wrapper.properties` is
    present but the wrapper jar binary is not checked in from this scaffold.
    Run `gradle wrapper` once (with a local Gradle 8.7 install) to generate

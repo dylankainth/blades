@@ -31,15 +31,16 @@ import com.hackmit.twins.ui.theme.SpaceGroteskFamily
  * gradient hero with the brand wordmark, ~1/3 white action panel below) —
  * grayscale here instead of blue, and no floating bubbles/noise texture.
  *
- * No login concept exists in this app (auth is anonymous per-device), so
- * the two actions map onto this app's actual two entry points instead of
- * sign-up/log-in: build a fresh twin, or skip straight to Home for a
- * device that already has one from an earlier session.
+ * "Build your twin" leads to Sign In, "I've already got one" leads to
+ * Sign Up — per the product decision behind this flow, see MainActivity's
+ * post-auth routing: signing IN checks for an existing completed twin and
+ * goes straight to Home if found, while signing UP is always a fresh
+ * account and always lands in Onboarding.
  */
 @Composable
 fun WelcomeScreen(
-    onBuildTwin: () -> Unit,
-    onSkipToHome: () -> Unit,
+    onGoToSignIn: () -> Unit,
+    onGoToSignUp: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Box(
@@ -75,7 +76,7 @@ fun WelcomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         ) {
             Button(
-                onClick = onBuildTwin,
+                onClick = onGoToSignIn,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 contentPadding = PaddingValues(vertical = 18.dp),
@@ -88,7 +89,7 @@ fun WelcomeScreen(
             }
 
             OutlinedButton(
-                onClick = onSkipToHome,
+                onClick = onGoToSignUp,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 contentPadding = PaddingValues(vertical = 18.dp),

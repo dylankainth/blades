@@ -78,5 +78,9 @@ dependencies {
     // Facebook Login (public_profile only — see OnboardingScreen.kt).
     implementation("com.facebook.android:facebook-login:17.0.0")
 
+    // Google Sign-In (classic GoogleSignInClient API — simpler to wire up
+    // than Credential Manager for this scope). See auth/AuthManager.kt.
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

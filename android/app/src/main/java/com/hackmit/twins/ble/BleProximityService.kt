@@ -72,9 +72,16 @@ class BleProximityService : Service() {
 
         startForeground(NOTIFICATION_ID, buildNotification())
 
+        // This service is only ever started (from MainActivity) after a
+        // successful sign-in/up, so a twinId is guaranteed to exist here.
+        val twinId = AuthManager.currentTwinIdOrNull()
+        if (twinId == null) {
+            stopSelf()
+            return
+        }
+        myTwinId = twinId
         serviceScope.launch {
-            myTwinId = AuthManager.getOrCreateTwinId()
-            startAdvertising(myTwinId!!)
+            startAdvertising(twinId)
             startScanning()
         }
     }

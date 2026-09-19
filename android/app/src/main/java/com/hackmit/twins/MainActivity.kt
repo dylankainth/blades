@@ -6,22 +6,30 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
 import com.hackmit.twins.auth.AuthManager
+import com.hackmit.twins.auth.SignInScreen
+import com.hackmit.twins.auth.SignUpScreen
 import com.hackmit.twins.ble.BleProximityService
 import com.hackmit.twins.checkin.CheckinScreen
 import com.hackmit.twins.match.MatchScreen
@@ -29,9 +37,12 @@ import com.hackmit.twins.onboarding.OnboardingScreen
 import com.hackmit.twins.ui.HomeScreen
 import com.hackmit.twins.ui.WelcomeScreen
 import com.hackmit.twins.ui.theme.DigitalTwinsTheme
+import kotlinx.coroutines.launch
 
 private object Routes {
     const val WELCOME = "welcome"
+    const val SIGN_IN = "sign_in"
+    const val SIGN_UP = "sign_up"
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val CHECKIN = "checkin"
@@ -81,14 +92,7 @@ class MainActivity : ComponentActivity() {
             DigitalTwinsTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
-                    var twinId by remember { mutableStateOf<String?>(null) }
                     var pendingMatch by remember { mutableStateOf(latestPendingMatch) }
-
-                    LaunchedEffect(Unit) {
-                        val id = AuthManager.getOrCreateTwinId()
-                        twinId = id
-                        requestBlePermissionsAndStart()
-                    }
 
                     LaunchedEffect(pendingMatch) {
                         if (pendingMatch != null) {
@@ -96,15 +100,12 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    val id = twinId
-                    if (id != null) {
-                        AppNavHost(
-                            navController = navController,
-                            twinId = id,
-                            pendingMatch = pendingMatch,
-                            onMatchHandled = { pendingMatch = null },
-                        )
-                    }
+                    AppNavHost(
+                        navController = navController,
+                        pendingMatch = pendingMatch,
+                        onMatchHandled = { pendingMatch = null },
+                        onAuthenticated = { startBlePipeline() },
+                    )
                 }
             }
         }
@@ -123,7 +124,9 @@ class MainActivity : ComponentActivity() {
         // notification tap.
     }
 
-    private fun requestBlePermissionsAndStart() {
+    /** Called once we actually have a signed-in twinId (fresh sign-in/up,
+     *  or an already-persisted Firebase Auth session on cold start). */
+    private fun startBlePipeline() {
         val allGranted = bluetoothPermissions.all {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
@@ -159,29 +162,108 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 private fun AppNavHost(
     navController: NavHostController,
-    twinId: String,
     pendingMatch: PendingMatch?,
     onMatchHandled: () -> Unit,
+    onAuthenticated: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val googleSignInClient = remember {
+        AuthManager.buildGoogleSignInClient(
+            context,
+            context.getString(R.string.google_web_client_id),
+        )
+    }
+
+    /** Routes to Home if this account already finished onboarding, else
+     *  Onboarding. Used for sign-in (email/password) and for Google
+     *  Sign-In on either screen, since Google sign-in transparently
+     *  creates-or-signs-in and this check is correct either way. */
+    fun routeCheckingOnboarding(twinId: String) {
+        scope.launch {
+            val destination = if (AuthManager.hasCompletedOnboarding(twinId)) {
+                Routes.HOME
+            } else {
+                Routes.ONBOARDING
+            }
+            onAuthenticated()
+            navController.navigate(destination) {
+                popUpTo(Routes.WELCOME) { inclusive = true }
+            }
+        }
+    }
+
+    /** A fresh email/password sign-up is always a brand-new account with no
+     *  twin yet — skip the Firestore check and go straight to Onboarding. */
+    fun routeAlwaysToOnboarding() {
+        onAuthenticated()
+        navController.navigate(Routes.ONBOARDING) {
+            popUpTo(Routes.WELCOME) { inclusive = true }
+        }
+    }
+
+    val googleLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        scope.launch {
+            try {
+                val account = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    .getResult(ApiException::class.java)
+                val idToken = account.idToken
+                if (idToken != null) {
+                    val twinId = AuthManager.signInWithGoogleIdToken(idToken)
+                    routeCheckingOnboarding(twinId)
+                }
+            } catch (e: ApiException) {
+                // Cancelled or failed sign-in: just leave the user on the
+                // current auth screen to retry, no crash/dead-end.
+            }
+        }
+    }
+
+    // If a Firebase Auth session already exists (returning user, app
+    // relaunched), skip Welcome/SignIn entirely and route straight in.
+    LaunchedEffect(Unit) {
+        AuthManager.currentTwinIdOrNull()?.let { routeCheckingOnboarding(it) }
+    }
+
     NavHost(navController = navController, startDestination = Routes.WELCOME) {
         composable(Routes.WELCOME) {
             WelcomeScreen(
-                onBuildTwin = {
-                    navController.navigate(Routes.ONBOARDING) {
-                        popUpTo(Routes.WELCOME) { inclusive = true }
-                    }
+                onGoToSignIn = { navController.navigate(Routes.SIGN_IN) },
+                onGoToSignUp = { navController.navigate(Routes.SIGN_UP) },
+            )
+        }
+        composable(Routes.SIGN_IN) {
+            SignInScreen(
+                onSignedIn = { email, password ->
+                    val twinId = AuthManager.signInWithEmail(email, password)
+                    routeCheckingOnboarding(twinId)
                 },
-                onSkipToHome = {
-                    navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.WELCOME) { inclusive = true }
-                    }
+                onGoogleClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
+                onSwitchToSignUp = {
+                    navController.navigate(Routes.SIGN_UP) { popUpTo(Routes.WELCOME) }
+                },
+            )
+        }
+        composable(Routes.SIGN_UP) {
+            SignUpScreen(
+                onSignedUp = { email, password ->
+                    AuthManager.signUpWithEmail(email, password)
+                    routeAlwaysToOnboarding()
+                },
+                onGoogleClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
+                onSwitchToSignIn = {
+                    navController.navigate(Routes.SIGN_IN) { popUpTo(Routes.WELCOME) }
                 },
             )
         }
         composable(Routes.ONBOARDING) {
+            val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
             OnboardingScreen(
                 twinId = twinId,
                 onOnboardingComplete = {
@@ -197,6 +279,7 @@ private fun AppNavHost(
             )
         }
         composable(Routes.CHECKIN) {
+            val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
             CheckinScreen(
                 twinId = twinId,
                 onCheckedIn = { navController.popBackStack() },
