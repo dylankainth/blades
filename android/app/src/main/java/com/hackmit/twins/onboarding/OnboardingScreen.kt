@@ -150,8 +150,7 @@ fun OnboardingScreen(
                             LoginButton(ctx).apply {
                                 // public_profile ONLY — no email, no friends,
                                 // no posting permissions. See CLAUDE.md.
-                                setPermissions(listOf("public_profile"))
-                                setReadPermissions(listOf("public_profile"))
+                                setPermissions("public_profile")
                                 registerCallback(
                                     callbackManager,
                                     object : FacebookCallback<LoginResult> {
