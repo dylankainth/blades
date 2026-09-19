@@ -43,6 +43,10 @@ fun HomePagerScreen(
     VerticalPager(
         state = pagerState,
         modifier = Modifier.fillMaxSize(),
+        // Real-device testing showed the un-reversed default mapped swipe
+        // up (not down) to Home -> Recent — reversed here so a physical
+        // swipe down is what reveals Recent, per the actual ask.
+        reverseLayout = true,
     ) { page ->
         when (page) {
             0 -> RecentSearchesScreen(
