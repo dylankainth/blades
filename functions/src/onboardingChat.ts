@@ -45,11 +45,13 @@ to take any action on their behalf (no scheduling, no messaging other
 people) — you are only building their profile.`;
 
 const PROFILE_EXTRACTION_SYSTEM_PROMPT = `Given the conversation transcript below, extract a JSON object with exactly
-two fields: "summary" (a 1-3 sentence plain-language description of who this
-person is, what they're working on, and what they're hoping to get out of
-the event) and "interests" (an array of 3-8 short lowercase tags/keywords,
-e.g. "devops", "looking for cofounder", "rock climbing"). Respond with ONLY
-the raw JSON object, no markdown fences, no commentary.`;
+three fields: "name" (the person's first name, or first name + last initial
+if given — just their name as they introduced themselves, or "" if they
+never gave one), "summary" (a 1-3 sentence plain-language description of who
+this person is, what they're working on, and what they're hoping to get out
+of the event), and "interests" (an array of 3-8 short lowercase tags/
+keywords, e.g. "devops", "looking for cofounder", "rock climbing"). Respond
+with ONLY the raw JSON object, no markdown fences, no commentary.`;
 
 interface OnboardingChatRequest {
   twinId: string;
@@ -63,6 +65,7 @@ interface OnboardingChatResponse {
 }
 
 interface ExtractedProfile {
+  name: string;
   summary: string;
   interests: string[];
 }
@@ -92,6 +95,7 @@ async function extractProfile(
     const jsonText = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
     const parsed = JSON.parse(jsonText) as Partial<ExtractedProfile>;
     return {
+      name: typeof parsed.name === "string" ? parsed.name : "",
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
       interests: Array.isArray(parsed.interests)
         ? parsed.interests.filter((i): i is string => typeof i === "string")
@@ -99,7 +103,7 @@ async function extractProfile(
     };
   } catch (err) {
     console.error("Profile extraction failed, using empty profile:", err);
-    return { summary: "", interests: [] };
+    return { name: "", summary: "", interests: [] };
   }
 }
 
@@ -220,6 +224,10 @@ export const onboardingChat = onCall<OnboardingChatRequest>(
               onboardingComplete: true,
               summary: extracted?.summary || null,
               interests: extracted?.interests ?? [],
+              // Only set if the model actually extracted one — don't
+              // clobber a name set some other way (e.g. Facebook Login)
+              // with an empty value.
+              ...(extracted?.name ? { name: extracted.name } : {}),
             }
           : {}),
       },

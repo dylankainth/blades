@@ -247,20 +247,23 @@
         // ============================================================
         // Firebase Configuration
         // ============================================================
-        // TODO: Fill in from Firebase Console
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyAMRDIwCL3B4Km3aneTKjiRCF-CFUWQH3E",
+            authDomain: "blades-a38f5.firebaseapp.com",
+            projectId: "blades-a38f5",
+            storageBucket: "blades-a38f5.firebasestorage.app",
+            messagingSenderId: "110415722590",
+            appId: "1:110415722590:web:48cabe19aec737fe049ccf",
         };
 
         // ============================================================
         // Firebase SDK Import and Initialization
         // ============================================================
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+        import {
+            getAuth,
+            signInAnonymously,
+        } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
         import {
             getFirestore,
             collection,
@@ -273,6 +276,12 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Anonymous auth just to satisfy Firestore's "request.auth != null"
+        // read rule on matches/{matchId} — this dashboard is read-only and
+        // never writes anything, so anonymous is enough. See firestore.rules.
+        await signInAnonymously(auth);
 
         // ============================================================
         // State & DOM
@@ -286,12 +295,10 @@
         // ============================================================
         // Firestore Listener Setup
         // ============================================================
-        // NOTE: This assumes Firestore read rules allow access to 'matches' collection.
-        // For a hackathon prototype, you can use a permissive rule like:
-        //   match /matches/{document=**} {
-        //     allow read: if request.auth != null || true;  // or just 'true' for open read
-        //   }
-        // Replace the conditional with the actual auth/permission logic before production.
+        // matches/{matchId} is readable by any signed-in user (see
+        // firestore.rules) — the anonymous sign-in above is what satisfies
+        // that. Shows every negotiation, confirmed matches and dismissed
+        // non-matches alike, which is the point of this dashboard.
 
         const matchesRef = collection(db, "matches");
         const q = query(matchesRef, orderBy("createdAt", "desc"), limit(50));

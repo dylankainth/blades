@@ -15,10 +15,5 @@
     <string name="facebook_app_id">000000000000000</string>
     <string name="facebook_client_token">TODO_CLIENT_TOKEN</string>
 
-    <!-- TODO: enable Google as a sign-in provider in the Firebase console
-         (Authentication -> Sign-in method -> Google), then copy the "Web
-         client ID" it generates (Authentication -> Sign-in method -> Google
-         -> Web SDK configuration) in here. Required for Google Sign-In to
-         work at all — see auth/AuthManager.kt. -->
-    <string name="google_web_client_id">TODO_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com</string>
+    <string name="google_web_client_id">110415722590-ui13k6qunaindougl7pjj15t6bmb166r.apps.googleusercontent.com</string>
 </resources>

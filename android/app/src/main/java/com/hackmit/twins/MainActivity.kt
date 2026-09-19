@@ -31,11 +31,14 @@ import com.hackmit.twins.auth.AuthManager
 import com.hackmit.twins.auth.SignInScreen
 import com.hackmit.twins.auth.SignUpScreen
 import com.hackmit.twins.ble.BleProximityService
-import com.hackmit.twins.checkin.CheckinScreen
 import com.hackmit.twins.match.MatchScreen
 import com.hackmit.twins.onboarding.OnboardingScreen
-import com.hackmit.twins.ui.HomeScreen
+import com.hackmit.twins.ui.HomePagerScreen
 import com.hackmit.twins.ui.WelcomeScreen
+import com.hackmit.twins.ui.MatchFeedItem
+import com.hackmit.twins.ui.MatchFeedRepository
+import com.hackmit.twins.ui.NegotiationDetail
+import com.hackmit.twins.ui.NegotiationDetailScreen
 import com.hackmit.twins.ui.theme.DigitalTwinsTheme
 import kotlinx.coroutines.launch
 
@@ -45,8 +48,8 @@ private object Routes {
     const val SIGN_UP = "sign_up"
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
-    const val CHECKIN = "checkin"
     const val MATCH = "match"
+    const val NEGOTIATION_DETAIL = "negotiation_detail"
 }
 
 /** State for a pending match notification tap, held outside NavHost args
@@ -80,8 +83,8 @@ class MainActivity : ComponentActivity() {
             if (grants.values.all { it }) {
                 startBleService()
             }
-            // If denied: for a hackathon demo we just fall back to the
-            // manual CheckinScreen trigger; we don't nag/re-prompt.
+            // If denied: we don't nag/re-prompt — BLE proximity just won't
+            // work on this device until the user grants it manually.
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,6 +107,7 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         pendingMatch = pendingMatch,
                         onMatchHandled = { pendingMatch = null },
+                        onSelectMatch = { pendingMatch = it },
                         onAuthenticated = { startBlePipeline() },
                     )
                 }
@@ -167,10 +171,14 @@ private fun AppNavHost(
     navController: NavHostController,
     pendingMatch: PendingMatch?,
     onMatchHandled: () -> Unit,
+    onSelectMatch: (PendingMatch) -> Unit,
     onAuthenticated: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    var selectedNegotiationItem by remember { mutableStateOf<MatchFeedItem?>(null) }
+    var negotiationDetail by remember { mutableStateOf<NegotiationDetail?>(null) }
 
     val googleSignInClient = remember {
         AuthManager.buildGoogleSignInClient(
@@ -274,16 +282,34 @@ private fun AppNavHost(
             )
         }
         composable(Routes.HOME) {
-            HomeScreen(
-                onOpenCheckin = { navController.navigate(Routes.CHECKIN) },
+            val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
+            HomePagerScreen(
+                twinId = twinId,
+                onOpenMatch = { item ->
+                    onSelectMatch(
+                        PendingMatch(
+                            twinId = item.otherTwinId,
+                            name = item.otherName,
+                            photoUrl = item.otherPhotoUrl,
+                            reason = item.reason ?: "Your twin thinks you two should talk.",
+                        ),
+                    )
+                    navController.navigate(Routes.MATCH)
+                },
+                onOpenNegotiationDetail = { item ->
+                    selectedNegotiationItem = item
+                    negotiationDetail = null
+                    navController.navigate(Routes.NEGOTIATION_DETAIL)
+                },
             )
         }
-        composable(Routes.CHECKIN) {
+        composable(Routes.NEGOTIATION_DETAIL) {
+            val item = selectedNegotiationItem ?: return@composable
             val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
-            CheckinScreen(
-                twinId = twinId,
-                onCheckedIn = { navController.popBackStack() },
-            )
+            LaunchedEffect(item.matchId) {
+                negotiationDetail = MatchFeedRepository.fetchDetail(item.matchId, twinId)
+            }
+            NegotiationDetailScreen(otherName = item.otherName, detail = negotiationDetail)
         }
         composable(Routes.MATCH) {
             val match = pendingMatch

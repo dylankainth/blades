@@ -57,9 +57,19 @@ export interface MatchDoc {
   twinIds: [string, string];
   locationId?: string | null;
   transcript: NegotiationTurn[];
-  /** Plain-language one-sentence reason, e.g. "you're both stuck on the same devops problem". */
+  /** Plain-language one-sentence reason — kept whether it's a match or not. */
   reason?: string | null;
+  /** 0-100 alignment score from the negotiation's final convergence step. */
+  score?: number | null;
   status: MatchStatus;
+  /**
+   * Denormalized name/photo per twinId, snapshotted at negotiation time —
+   * lets a client render "who is this match with" (Home feed, judge
+   * dashboard) straight off the match doc instead of an extra twins/{id}
+   * read per twin per match.
+   */
+  names: Record<string, string>;
+  photoUrls: Record<string, string | null>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

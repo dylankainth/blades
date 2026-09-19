@@ -20,6 +20,19 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == twinId;
     }
 
+    // ble_sessions/{token} — maps a short random BLE-advertised session
+    // token (see BleProximityService.kt) back to the real twinId that
+    // generated it. Needed because a legacy BLE advertisement packet caps
+    // at 31 bytes total, nowhere near enough to fit a 28-byte Firebase
+    // uid alongside the mandatory flags + service-data-UUID overhead — so
+    // the phone advertises a short random token and any scanning device
+    // resolves it here instead.
+    match /ble_sessions/{token} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        request.resource.data.twinId == request.auth.uid;
+    }
+
     // checkins/{locationId}/people/{twinId} — "I'm here" presence docs.
     // Any signed-in device may read who's checked in; a device may only
     // create/update/delete its own check-in entry.
@@ -29,12 +42,14 @@ service cloud.firestore {
     }
 
     // matches/{matchId} — negotiation transcript + outcome for a pair of
-    // twins. Only the two twins involved may read it. All writes happen
-    // server-side (negotiateTwins / onCheckin via the Admin SDK, which
-    // bypasses rules) — clients never write matches directly.
+    // twins. Readable by any signed-in user (this intentionally includes
+    // the judge-facing dashboard, which signs in anonymously — see
+    // judge-dashboard/index.html — and shows confirmed matches AND
+    // dismissed non-matches, which is the point of that screen). All
+    // writes happen server-side (negotiateTwins / onCheckin via the Admin
+    // SDK, which bypasses rules) — clients never write matches directly.
     match /matches/{matchId} {
-      allow read: if request.auth != null &&
-        request.auth.uid in resource.data.twinIds;
+      allow read: if request.auth != null;
       allow write: if false;
     }
 

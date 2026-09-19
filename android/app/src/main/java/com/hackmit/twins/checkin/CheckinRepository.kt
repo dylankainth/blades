@@ -5,10 +5,10 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 
 /**
- * Single write path for "a twin is present at a location," shared by both
- * proximity triggers:
- *  - BleProximityService, for real BLE-detected proximity between two phones.
- *  - CheckinScreen, for the manual "I'm at booth X" demo-day fallback.
+ * Write path for "a twin is present at a location" — called by
+ * BleProximityService on real BLE-detected proximity between two phones,
+ * using a synthetic per-pair locationId (see the comment there) since BLE
+ * proximity has no natural venue to key off of.
  *
  * Firestore layout: checkins/{locationId}/people/{twinId}
  * A Cloud Function (not part of this Android scaffold) watches this
@@ -22,11 +22,11 @@ object CheckinRepository {
     /**
      * Records that [twinId] was just seen at [locationId].
      *
-     * For BLE proximity there's no natural venue "location" to key off of —
-     * two phones just came near each other, possibly nowhere near a fixed
-     * booth — so BleProximityService passes a synthetic locationId (see the
-     * comment there) rather than a real venue id. Manual check-ins use a
-     * real, human-chosen locationId like "booth-3".
+     * There's no natural venue "location" to key off of — two phones just
+     * came near each other, possibly nowhere near a fixed booth — so
+     * BleProximityService passes a synthetic, order-independent locationId
+     * derived from both twinIds (see the comment there) rather than a real
+     * venue id.
      */
     fun recordCheckin(locationId: String, twinId: String) {
         db.collection("checkins")

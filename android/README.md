@@ -18,11 +18,18 @@ full product context.
   match notification (photo, name, one specific reason, "Say hi" action).
 - `match/MatchScreen.kt` — the handoff screen: matched person + reason +
   a single confirm action. No auto-generated intro message is ever sent.
-- `checkin/CheckinScreen.kt` — manual "I'm at booth X" fallback, writing to
-  the same Firestore path as the BLE service, for demo-day reliability.
+- `ui/HomeScreen.kt` — the idle screen: an animated character
+  (`ui/ListeningAvatar.kt`, ported from `design/Kindred App.dc.html`'s
+  Ambient screen) plus a live feed of recent negotiations. Tapping a
+  confirmed match opens MatchScreen; tapping a non-match opens
+  `ui/NegotiationDetailScreen.kt` (full transcript + score + reason).
+  BLE is the sole proximity trigger — there's no manual check-in fallback
+  in the UI (removed once real BLE proximity was confirmed working; see
+  `checkin/CheckinRepository.kt`, still used directly by
+  BleProximityService).
 - `MainActivity.kt` — Compose navigation (Welcome → Sign In/Up → Onboarding
-  or Home → Match/Checkin), BLE permission requests, and starting the
-  foreground service (only after a successful sign-in/up).
+  or Home → Match/Negotiation detail), BLE permission requests, and
+  starting the foreground service (only after a successful sign-in/up).
 - `auth/` — real accounts (email/password + Google Sign-In) via Firebase
   Auth, replacing the earlier anonymous-only model. "Build your twin" on
   the welcome screen leads to Sign In; "I've already got one" leads to
