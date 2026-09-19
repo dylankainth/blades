@@ -31,7 +31,6 @@ import com.hackmit.twins.auth.AuthManager
 import com.hackmit.twins.auth.SignInScreen
 import com.hackmit.twins.auth.SignUpScreen
 import com.hackmit.twins.ble.BleProximityService
-import com.hackmit.twins.checkin.CheckinScreen
 import com.hackmit.twins.match.MatchScreen
 import com.hackmit.twins.onboarding.OnboardingScreen
 import com.hackmit.twins.ui.HomeScreen
@@ -49,7 +48,6 @@ private object Routes {
     const val SIGN_UP = "sign_up"
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
-    const val CHECKIN = "checkin"
     const val MATCH = "match"
     const val NEGOTIATION_DETAIL = "negotiation_detail"
 }
@@ -85,8 +83,8 @@ class MainActivity : ComponentActivity() {
             if (grants.values.all { it }) {
                 startBleService()
             }
-            // If denied: for a hackathon demo we just fall back to the
-            // manual CheckinScreen trigger; we don't nag/re-prompt.
+            // If denied: we don't nag/re-prompt — BLE proximity just won't
+            // work on this device until the user grants it manually.
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -287,7 +285,6 @@ private fun AppNavHost(
             val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
             HomeScreen(
                 twinId = twinId,
-                onOpenCheckin = { navController.navigate(Routes.CHECKIN) },
                 onOpenMatch = { item ->
                     onSelectMatch(
                         PendingMatch(
@@ -313,13 +310,6 @@ private fun AppNavHost(
                 negotiationDetail = MatchFeedRepository.fetchDetail(item.matchId, twinId)
             }
             NegotiationDetailScreen(otherName = item.otherName, detail = negotiationDetail)
-        }
-        composable(Routes.CHECKIN) {
-            val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
-            CheckinScreen(
-                twinId = twinId,
-                onCheckedIn = { navController.popBackStack() },
-            )
         }
         composable(Routes.MATCH) {
             val match = pendingMatch

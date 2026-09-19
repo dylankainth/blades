@@ -103,9 +103,11 @@ event scale, and directly usable on ourselves in the room in front of judges.
      could misbehave under time pressure). A foreground/background service
      advertises + scans BLE to detect nearby twins and feeds real proximity
      events into the matching engine from item 2. This replaces the earlier
-     "fake the sensor, use QR check-in" fallback as the primary plan — keep
-     QR/manual check-in as a backup trigger in case live BLE demo
-     conditions are bad (venue RF noise, permission denial, etc.).
+     "fake the sensor, use QR check-in" fallback as the primary plan. A
+     manual QR/check-in backup was scaffolded initially but removed once
+     real BLE proximity was confirmed working end-to-end on real hardware
+     (two phones, live detection → negotiation → match) — BLE is now the
+     sole proximity trigger, no manual UI fallback exists.
 
 ## Stack decisions
 
@@ -193,24 +195,25 @@ event scale, and directly usable on ourselves in the room in front of judges.
 5. **Proximity trigger** — native Android app (Kotlin) doing real BLE
    background advertise/scan to detect nearby twins; a detected proximity
    event triggers live pairwise negotiation against whoever's actually
-   nearby, not a lookup against a precomputed global shortlist. Keep
-   QR/manual check-in wired up as a fallback trigger for demo-day
-   reliability.
+   nearby, not a lookup against a precomputed global shortlist. Confirmed
+   working live on real hardware — no manual/QR fallback needed or built.
 
 ## Interface notes (priority: interface is the product)
 
-- **Pages/screens needed** (five, all in the one native Android app except
-  the last):
-  1. Onboarding chat — the ~90-second conversational twin-creation flow.
-  2. Check-in / proximity — mostly invisible (BLE runs via the background
-     service), but keep a manual QR/"I'm at booth X" check-in UI as a
-     fallback trigger.
-  3. Notification screen — the centerpiece; see tone notes below.
-  4. Match/handoff screen — what tapping the notification opens into.
-  5. Judge-facing negotiation view — separate lightweight web page (not
+- **Pages/screens built** (all in the one native Android app except the
+  last):
+  1. Welcome — app-opening screen, gradient hero with the animated
+     character, leads into Sign In / Sign Up.
+  2. Onboarding chat — the ~90-second conversational twin-creation flow.
+  3. Home — idle/listening state (animated character, fully invisible BLE
+     proximity underneath, no manual check-in UI) plus a live feed of
+     recent negotiations.
+  4. Notification screen — the centerpiece; see tone notes below.
+  5. Match/handoff screen — what tapping a confirmed match opens into.
+  6. Negotiation detail screen — for a non-match: full transcript + score
+     + reason, opened by tapping a dismissed item in the Home feed.
+  7. Judge-facing negotiation view — separate lightweight web page (not
      in the Android app), live-subscribed to Firestore.
-  Everything else (twin list/dashboard, settings, match history) is
-  nice-to-have, not demo-critical — skip unless time is left over.
 - Mock the phone notification screen first, before backend work — get the
   wording, tone, and visuals nailed down early since it's the single screen
   that carries the whole pitch.
