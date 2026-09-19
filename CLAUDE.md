@@ -70,10 +70,18 @@ event scale, and directly usable on ourselves in the room in front of judges.
 
 2. **1000×1000 pairwise agent negotiation** — combinatorially this is ~500k
    conversations, not feasible or necessary.
-   - Fix: embedding/vector search to shortlist a handful of strong candidates
-     per person, then only run full LLM-to-LLM negotiation on the shortlist.
-     Identical result from the judges' point of view, dramatically cheaper
-     and actually runs in real time.
+   - Fix: don't precompute a global shortlist at all. Gate matching by
+     proximity itself — when someone checks in at a location, only run
+     LLM-to-LLM negotiation against the small set of people currently/
+     recently checked in there (tens, not thousands). No embedding index,
+     no background batch job; compute scales with actual foot traffic, not
+     the full attendee pool. Trade-off: you only ever surface matches among
+     people who actually cross paths at a check-in point — you may miss a
+     great match who never co-locates, but that's an acceptable (arguably
+     more honest — "worth talking to right now, near you") trade for a
+     hackathon build. Watch latency: negotiation now runs live between
+     check-in and notification, so it needs to be fast enough that the
+     person is plausibly still there.
 
 3. **True background proximity detection (BLE/phone background location) as
    you "walk past someone"** — real background Bluetooth proximity on
@@ -100,8 +108,10 @@ event scale, and directly usable on ourselves in the room in front of judges.
    specifically) — show two twins' actual exchange on screen, not just the
    final output. This is the "wow" moment: visible negotiation collapsing
    into a human-readable outcome.
-5. **Proximity trigger** — fake sensor (QR/check-in), real payload
-   (matching + notification pipeline).
+5. **Proximity trigger** — fake sensor (QR/check-in) that also *drives* the
+   matching engine: a check-in triggers live pairwise negotiation against
+   whoever else is currently at that location, not a lookup against a
+   precomputed global shortlist.
 
 ## Interface notes (priority: interface is the product)
 
