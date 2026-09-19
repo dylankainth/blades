@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Minimal launch theme; actual UI theming is done in Compose
+         (see ui/theme/Theme.kt). This just avoids a flash-of-unstyled-window
+         and satisfies the manifest's android:theme reference. -->
+    <style name="Theme.DigitalTwins" parent="Theme.Material3.DayNight.NoActionBar" />
+</resources>

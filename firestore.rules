@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // twins/{twinId} — a twin's own profile. Readable by any signed-in
+    // device (needed to show a matched person's name/photo client-side),
+    // but only the owning device (Firebase Auth anonymous uid == twinId)
+    // may write it.
+    match /twins/{twinId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == twinId;
+    }
+
+    // onboarding_sessions/{twinId} — the onboarding chat transcript.
+    // Private to the owning device; the onboardingChat Cloud Function
+    // itself writes via the Admin SDK (which bypasses these rules), so
+    // this really only governs any direct client reads/writes.
+    match /onboarding_sessions/{twinId} {
+      allow read, write: if request.auth != null && request.auth.uid == twinId;
+    }
+
+    // checkins/{locationId}/people/{twinId} — "I'm here" presence docs.
+    // Any signed-in device may read who's checked in; a device may only
+    // create/update/delete its own check-in entry.
+    match /checkins/{locationId}/people/{twinId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == twinId;
+    }
+
+    // matches/{matchId} — negotiation transcript + outcome for a pair of
+    // twins. Only the two twins involved may read it. All writes happen
+    // server-side (negotiateTwins / onCheckin via the Admin SDK, which
+    // bypasses rules) — clients never write matches directly.
+    match /matches/{matchId} {
+      allow read: if request.auth != null &&
+        request.auth.uid in resource.data.twinIds;
+      allow write: if false;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

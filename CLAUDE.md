@@ -141,17 +141,22 @@ event scale, and directly usable on ourselves in the room in front of judges.
 - **Backend: Firebase** (Firestore + Cloud Functions + FCM) as a single
   vendor, to avoid gluing together separate DB/functions/push infra under
   time pressure.
-- **Models: Claude for onboarding conversation, Meta Muse Spark for
-  twin-to-twin negotiation.** Muse Spark (Meta's frontier model, via the
-  self-serve Meta Model API — developer.meta.com, $20 free credit, then
-  pay-as-you-go) is purpose-built and marketed for multi-agent
-  orchestration/tool-calling, which is a direct, literal match for the
-  negotiation step specifically — using Meta's own agent-orchestration
-  model for the actual agent-to-agent negotiation is the strongest
-  "essential and well-integrated AI" story for the Meta/Facebook track.
-  Onboarding chat (rapport-building, personality-driven interview) stays
-  on Claude since there's no requirement to use one vendor for everything
-  — double-check the actual HackMIT track rules on exclusivity though.
+- **Models: Meta Muse Spark for both onboarding conversation and
+  twin-to-twin negotiation** (via the self-serve Meta Model API —
+  developer.meta.com, $20 free credit, then pay-as-you-go). Originally
+  split (Claude for onboarding, Muse for negotiation); consolidated onto
+  Muse Spark alone to cut down on API keys/secrets to manage under time
+  pressure and lean further into the Meta track story. Muse Spark is
+  purpose-built and marketed for multi-agent orchestration/tool-calling,
+  which is a direct, literal match for the negotiation step in particular
+  — using Meta's own agent-orchestration model for the actual
+  agent-to-agent negotiation is the strongest "essential and
+  well-integrated AI" story for the Meta/Facebook track. Confirmed from
+  Meta's docs: Model API speaks the Anthropic Messages API shape natively,
+  so both call sites go through a shared client
+  (`functions/src/lib/metaModel.ts`) that points the official
+  `@anthropic-ai/sdk` at `https://api.meta.ai` (model `muse-spark-1.3`)
+  with the Model API key as the bearer token — no custom parsing needed.
 - **Cloud Functions architecture for chat**: no long-lived session/
   connection needed. Multi-turn onboarding chat is a sequence of short,
   stateless request/response turns — each turn reads the conversation

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Digital Twins</string>
+
+    <string name="match_notification_channel_id">twin_matches</string>
+    <string name="match_notification_channel_name">Twin matches</string>
+
+    <string name="ble_notification_channel_id">twin_proximity</string>
+    <string name="ble_notification_channel_name">Nearby twin listening</string>
+    <string name="ble_notification_text">Twin is listening for connections nearby</string>
+
+    <!-- TODO: replace with the real Facebook App ID / Client Token from
+         developers.facebook.com before demo day. Login scoped to
+         public_profile only (name + photo) — see OnboardingScreen.kt. -->
+    <string name="facebook_app_id">000000000000000</string>
+    <string name="facebook_client_token">TODO_CLIENT_TOKEN</string>
+</resources>
