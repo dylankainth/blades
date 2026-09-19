@@ -21,6 +21,8 @@ import { META_MODEL_API_KEY } from "./lib/secrets";
 import { callMetaModel, type MetaModelMessage } from "./lib/metaModel";
 import type { OnboardingSession, OnboardingTurn, TwinProfile } from "./types";
 
+const COMPLETION_MARKER = "[ONBOARDING_COMPLETE]";
+
 const ONBOARDING_SYSTEM_PROMPT = `You are the onboarding voice for a person's "digital twin" — a lightweight AI
 profile that will later represent them to other twins at an event, for the
 sole purpose of surfacing a handful of people worth meeting in person.
@@ -33,10 +35,21 @@ into here". Keep questions short, one at a time, and friendly — this should
 feel like chatting with a curious friend, not filling out a form.
 
 Do not be exhaustive. Once you have a decent picture of who they are, what
-they're working on, and what they're looking for, say so warmly and wrap up
-— do not keep interrogating them. Never claim to take any action on their
-behalf (no scheduling, no messaging other people) — you are only building
-their profile.`;
+they're working on, and what they're looking for, say so warmly to wrap up
+— do not keep interrogating them. When (and only when) you are wrapping up
+for good, end your message with the exact literal line "${COMPLETION_MARKER}"
+on its own line, after your warm sign-off sentence — this is a signal the
+app uses to move the person forward, it is never shown to them. Do not
+include that line in any earlier message, only the final one. Never claim
+to take any action on their behalf (no scheduling, no messaging other
+people) — you are only building their profile.`;
+
+const PROFILE_EXTRACTION_SYSTEM_PROMPT = `Given the conversation transcript below, extract a JSON object with exactly
+two fields: "summary" (a 1-3 sentence plain-language description of who this
+person is, what they're working on, and what they're hoping to get out of
+the event) and "interests" (an array of 3-8 short lowercase tags/keywords,
+e.g. "devops", "looking for cofounder", "rock climbing"). Respond with ONLY
+the raw JSON object, no markdown fences, no commentary.`;
 
 interface OnboardingChatRequest {
   twinId: string;
@@ -46,6 +59,48 @@ interface OnboardingChatRequest {
 interface OnboardingChatResponse {
   reply: string;
   turnCount: number;
+  onboardingComplete: boolean;
+}
+
+interface ExtractedProfile {
+  summary: string;
+  interests: string[];
+}
+
+/**
+ * One extra Muse Spark call, made only once (when onboarding wraps up), to
+ * turn the freeform transcript into the structured summary/interests fields
+ * negotiateTwins.ts actually reads. Best-effort: on any parse failure this
+ * falls back to a null summary/empty interests rather than failing the
+ * whole request — onboarding having already completed is more important
+ * than a perfect extraction.
+ */
+async function extractProfile(
+  apiKey: string,
+  transcript: MetaModelMessage[],
+): Promise<ExtractedProfile> {
+  try {
+    const raw = await callMetaModel({
+      apiKey,
+      system: PROFILE_EXTRACTION_SYSTEM_PROMPT,
+      messages: [
+        ...transcript,
+        { role: "user", content: "Extract the JSON now." },
+      ],
+      maxTokens: 4096,
+    });
+    const jsonText = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
+    const parsed = JSON.parse(jsonText) as Partial<ExtractedProfile>;
+    return {
+      summary: typeof parsed.summary === "string" ? parsed.summary : "",
+      interests: Array.isArray(parsed.interests)
+        ? parsed.interests.filter((i): i is string => typeof i === "string")
+        : [],
+    };
+  } catch (err) {
+    console.error("Profile extraction failed, using empty profile:", err);
+    return { summary: "", interests: [] };
+  }
 }
 
 export const onboardingChat = onCall<OnboardingChatRequest>(
@@ -119,13 +174,28 @@ export const onboardingChat = onCall<OnboardingChatRequest>(
       );
     }
 
+    const onboardingComplete = reply.includes(COMPLETION_MARKER);
+    // The marker is an internal signal only — never show it to the user.
+    const visibleReply = reply.replace(COMPLETION_MARKER, "").trimEnd();
+
     const assistantTurn: OnboardingTurn = {
       role: "assistant",
-      content: reply,
+      content: visibleReply,
       ts: Timestamp.now(),
     };
 
     const updatedTurns = [...priorTurns, userTurn, assistantTurn];
+
+    // Only when onboarding just wrapped up: spend one extra call turning
+    // the transcript into the structured summary/interests fields
+    // negotiateTwins.ts reads. Not run on every turn — only once, here.
+    const extracted = onboardingComplete
+      ? await extractProfile(META_MODEL_API_KEY.value(), [
+          ...priorTurns.map((t) => ({ role: t.role, content: t.content })),
+          { role: userTurn.role, content: userTurn.content },
+          { role: "assistant", content: visibleReply },
+        ])
+      : null;
 
     const batch = db.batch();
     batch.set(
@@ -139,23 +209,29 @@ export const onboardingChat = onCall<OnboardingChatRequest>(
       { merge: true },
     );
 
-    // Keep a lightweight mirror on the twin profile itself so other
-    // functions (matching, negotiation) don't need to read the full
-    // transcript — just the latest summary. We don't call Claude a second
-    // time to summarize here to keep this function fast; a fuller summary
-    // pass can be layered in later (e.g. once onboarding completes).
     const twinRef = db.collection("twins").doc(twinId);
     batch.set(
       twinRef,
       {
         twinId,
         updatedAt: FieldValue.serverTimestamp(),
+        ...(onboardingComplete
+          ? {
+              onboardingComplete: true,
+              summary: extracted?.summary || null,
+              interests: extracted?.interests ?? [],
+            }
+          : {}),
       },
       { merge: true },
     );
 
     await batch.commit();
 
-    return { reply, turnCount: updatedTurns.length };
+    return {
+      reply: visibleReply,
+      turnCount: updatedTurns.length,
+      onboardingComplete,
+    };
   },
 );
