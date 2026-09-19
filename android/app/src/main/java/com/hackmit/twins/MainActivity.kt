@@ -27,9 +27,11 @@ import com.hackmit.twins.checkin.CheckinScreen
 import com.hackmit.twins.match.MatchScreen
 import com.hackmit.twins.onboarding.OnboardingScreen
 import com.hackmit.twins.ui.HomeScreen
+import com.hackmit.twins.ui.WelcomeScreen
 import com.hackmit.twins.ui.theme.DigitalTwinsTheme
 
 private object Routes {
+    const val WELCOME = "welcome"
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val CHECKIN = "checkin"
@@ -164,7 +166,21 @@ private fun AppNavHost(
     pendingMatch: PendingMatch?,
     onMatchHandled: () -> Unit,
 ) {
-    NavHost(navController = navController, startDestination = Routes.ONBOARDING) {
+    NavHost(navController = navController, startDestination = Routes.WELCOME) {
+        composable(Routes.WELCOME) {
+            WelcomeScreen(
+                onBuildTwin = {
+                    navController.navigate(Routes.ONBOARDING) {
+                        popUpTo(Routes.WELCOME) { inclusive = true }
+                    }
+                },
+                onSkipToHome = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.WELCOME) { inclusive = true }
+                    }
+                },
+            )
+        }
         composable(Routes.ONBOARDING) {
             OnboardingScreen(
                 twinId = twinId,

@@ -1,0 +1,104 @@
+package com.hackmit.twins.ui
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.SpaceGroteskFamily
+
+/**
+ * App-open screen. Same structural idea as the reference design (~2/3
+ * gradient hero with the brand wordmark, ~1/3 white action panel below) —
+ * grayscale here instead of blue, and no floating bubbles/noise texture.
+ *
+ * No login concept exists in this app (auth is anonymous per-device), so
+ * the two actions map onto this app's actual two entry points instead of
+ * sign-up/log-in: build a fresh twin, or skip straight to Home for a
+ * device that already has one from an earlier session.
+ */
+@Composable
+fun WelcomeScreen(
+    onBuildTwin: () -> Unit,
+    onSkipToHome: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.68f)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            KindredColors.TextSecondary,
+                            KindredColors.TextPrimary,
+                        ),
+                    ),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Kindred",
+                fontFamily = SpaceGroteskFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 56.sp,
+                letterSpacing = (-0.03).em,
+                color = KindredColors.OnDark,
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.32f)
+                .background(KindredColors.PageBackground)
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        ) {
+            Button(
+                onClick = onBuildTwin,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = PaddingValues(vertical = 18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = KindredColors.TextPrimary,
+                    contentColor = KindredColors.OnDark,
+                ),
+            ) {
+                Text("Build your twin", style = MaterialTheme.typography.titleMedium)
+            }
+
+            OutlinedButton(
+                onClick = onSkipToHome,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = PaddingValues(vertical = 18.dp),
+                border = BorderStroke(1.5.dp, KindredColors.TextPrimary),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = KindredColors.TextPrimary,
+                ),
+            ) {
+                Text("I've already got one", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+}
