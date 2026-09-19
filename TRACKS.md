@@ -14,10 +14,11 @@ The good news: the three highest-value additions below (voice, cost instrumentat
 time-saved framing) all make the Meta demo *better*, not merely parallel. That isn't a
 coincidence — they're the parts of the pitch that are currently told rather than shown.
 
-> **Before committing to any of this:** confirm whether HackMIT caps the number of sponsor
-> challenges one project may submit to. Several hackathons limit it to 2–3. I could not
-> determine this from the three docs provided, and it changes the whole plan. Ask an
-> organizer in Discord first — it's a two-minute question.
+> **Submission cap: none.** Confirmed with organizers — a project may enter as many sponsor
+> challenges as it likes. So entering a track costs you nothing but the work it takes to
+> qualify honestly. The binding constraint is **hours and demo quality**, not slots: every
+> track below is priced in effort, and the declines are quality judgments rather than
+> rationing. If a track needs zero code, there is now no argument against entering it.
 
 ---
 
@@ -34,8 +35,10 @@ coincidence — they're the parts of the pitch that are currently told rather th
 | **Cognition (Devin)** | Process | None | ~0 h | $5K to one team |
 | **Elastic** | Stretch | Twin memory layer | ~4–6 h | Quest 3S / member |
 
-Everything else: declined, with reasons in the last section. Don't spray-and-pray — a thin
-submission to eight tracks reads worse than a real one to five.
+Everything else: declined, with reasons in the last section. With no submission cap the only
+reason to decline is quality — a track you can't qualify for honestly still costs you the
+hours you spend failing to, and a visibly bolted-on entry is a bad look in front of a sponsor
+you may want to interview with later.
 
 ---
 
@@ -206,9 +209,34 @@ Worth knowing the reasons, so you can answer when a mentor pushes one of these a
 | **Warp (Best Developer Tool)** | Kindred is not a developer tool. No amount of framing fixes that. |
 | **Dropbox** | The *StudentOS* bullet is genuinely adjacent — connecting people to what they're working on. But Dropbox's rubric is anchored on files and content chaos, and Kindred deliberately doesn't ingest documents (`CLAUDE.md` item 1 rejects OAuth scraping as fragile and invasive). Fitting this means building the thing you already decided not to build. |
 | **SpaceXAI** | Hard requirement: real space data plus the Grok Imagine or Voice API. Wrong domain. |
-| **Visa, Maximor, Voloridge, Arrowstreet, Regeneron, GiveCampus** | Wrong domains — commerce/payments, CFO finance workflows, public-dataset analysis, greenwashing detection, clinical trials, fundraising constituent data. Each expects domain work you have no reason to do. |
+| **GiveCampus** | The closest of the declines, and worth re-reading if you finish early — see the note below the table. |
+| **Visa, Maximor, Voloridge, Arrowstreet, Regeneron** | Wrong domains — commerce/payments, CFO finance workflows, public-dataset analysis, greenwashing detection, clinical trials. Each expects domain work you have no reason to do. |
 | **Arduino, Espressif, Dimensional, ASUS, Hackster** | Hardware tracks. There's a superficial BLE adjacency (an ESP32 as a booth check-in beacon for the fallback trigger), but Espressif's challenge is about their Private Agents platform rather than the chip, and the rest need real hardware builds. ASUS's "use our products" is thin enough that judges will see through it. |
 | **Linq (iMessage/RCS/SMS API)** | Not a judged challenge in these docs, and the obvious use — auto-sending the intro message — **directly violates your own guardrail**: "never an auto-generated intro message sent on your behalf." Using it would weaken the Meta pitch. |
+
+### The GiveCampus near-miss
+
+Flagging this one properly because the rubric alignment is genuinely striking, and with no
+submission cap it's the only decline that could flip.
+
+Their ask is *"help a fundraising team figure out who to reach out to, and why"* — including
+*"a copilot that answers: who are the 20 people I need to reach before Giving Day, and why
+those 20?"* And their judging note is **"we're looking for judgment about the job, not just
+accuracy on a metric."**
+
+That is, almost word for word, your item 2: *matching with a visible "why" — not a score or
+a percentage. The reasoning is the product.* You would be entering with a thesis you already
+hold rather than one invented for the occasion.
+
+**Why it's still a decline for now:** it needs a real port — pointing your reasoning engine
+at their constituent CSV, in a domain (alumni fundraising) with none of your proximity or
+twin-to-twin machinery. Call it 3–4 h for something credible, and it shares no code path with
+the demo you're actually presenting. The prizes are also the softest on the board (lunch with
+leaders, a mentorship session, a $500 donation to a nonprofit) — real career value if you want
+GiveCampus specifically, low material value otherwise.
+
+**Revisit it if and only if** BLE is stable, the Meta video is cut, and you have four hours
+spare. Rank it below Elastic.
 
 ---
 
@@ -263,8 +291,7 @@ more than a talking one, because item 5 is the part of the demo that can't be fa
 
 ## Open questions to resolve before building
 
-1. **Submission cap** — how many sponsor challenges may one project enter? Ask organizers.
-   This blocks everything else on this page.
+1. ~~**Submission cap**~~ — **resolved: no cap.** Enter as many as you can qualify for honestly.
 2. **Meta Model API prompt caching** — does `cache_control` actually work against
    `api.meta.ai`? Test before claiming it.
 3. **ElevenLabs quota** — no HackMIT credit is listed for them. Confirm free-tier headroom at
