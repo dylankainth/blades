@@ -62,8 +62,15 @@ natively (confirmed from Meta's docs), so `functions/src/lib/metaModel.ts`
 just points the official `@anthropic-ai/sdk` at `https://api.meta.ai` with
 the Model API key as the bearer token — no custom parsing, no guesswork.
 
-For local emulator use, copy `.env.example` to `.env` in this directory and
-fill in real values — `firebase emulators:start` reads it automatically.
+For local emulator use, copy `.env.example` to **`.env.local`** (not `.env`)
+in this directory and fill in real values — `firebase emulators:start` reads
+it automatically. Use `.env.local` specifically, not `.env`: Cloud Functions
+v2 uploads `.env`/`.env.<project-id>` as plain environment variables on
+*deploy* too, and a plain env var with the same name as a declared secret
+(`META_MODEL_API_KEY`) makes the deploy fail with "Secret environment
+variable overlaps non secret environment variable". `.env.local` is
+emulator-only and never uploaded — see
+https://firebase.google.com/docs/functions/config-env#env-variables.
 
 **TODOs for a human before this runs end-to-end:**
 

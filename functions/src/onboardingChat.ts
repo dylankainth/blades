@@ -103,7 +103,7 @@ export const onboardingChat = onCall<OnboardingChatRequest>(
         apiKey: META_MODEL_API_KEY.value(),
         system: ONBOARDING_SYSTEM_PROMPT,
         messages: metaModelMessages,
-        maxTokens: 1024,
+        maxTokens: 4096,
       });
       if (!reply) {
         throw new HttpsError(
