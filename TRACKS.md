@@ -35,6 +35,12 @@ coincidence — they're the parts of the pitch that are currently told rather th
 | **Cognition (Devin)** | Process | None | ~0 h | $5K to one team |
 | **Elastic** | Stretch | Twin memory layer | ~4–6 h | Quest 3S / member |
 
+> **Superseded in part by [`PLAN.md`](PLAN.md).** After reviewing the hardware checkout
+> inventory, two more tracks became reachable — **Hackster** (nRF52840-DK as a venue beacon)
+> and **Espressif** (ESP32-S3 beacons) — plus **ASUS** as a free-but-thin entry. This page
+> is still the *why* for each track; `PLAN.md` is the execution order, hardware cart, credit
+> claims and cut lines.
+
 Everything else: declined, with reasons in the last section. With no submission cap the only
 reason to decline is quality — a track you can't qualify for honestly still costs you the
 hours you spend failing to, and a visibly bolted-on entry is a bad look in front of a sponsor
