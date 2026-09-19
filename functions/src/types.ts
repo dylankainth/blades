@@ -60,6 +60,14 @@ export interface MatchDoc {
   /** Plain-language one-sentence reason, e.g. "you're both stuck on the same devops problem". */
   reason?: string | null;
   status: MatchStatus;
+  /**
+   * Denormalized name/photo per twinId, snapshotted at negotiation time —
+   * lets a client render "who is this match with" (Home feed, judge
+   * dashboard) straight off the match doc instead of an extra twins/{id}
+   * read per twin per match.
+   */
+  names: Record<string, string>;
+  photoUrls: Record<string, string | null>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

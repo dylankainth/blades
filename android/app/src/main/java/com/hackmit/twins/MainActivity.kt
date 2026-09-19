@@ -36,6 +36,7 @@ import com.hackmit.twins.match.MatchScreen
 import com.hackmit.twins.onboarding.OnboardingScreen
 import com.hackmit.twins.ui.HomeScreen
 import com.hackmit.twins.ui.WelcomeScreen
+import com.hackmit.twins.ui.MatchFeedItem
 import com.hackmit.twins.ui.theme.DigitalTwinsTheme
 import kotlinx.coroutines.launch
 
@@ -104,6 +105,7 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         pendingMatch = pendingMatch,
                         onMatchHandled = { pendingMatch = null },
+                        onSelectMatch = { pendingMatch = it },
                         onAuthenticated = { startBlePipeline() },
                     )
                 }
@@ -167,6 +169,7 @@ private fun AppNavHost(
     navController: NavHostController,
     pendingMatch: PendingMatch?,
     onMatchHandled: () -> Unit,
+    onSelectMatch: (PendingMatch) -> Unit,
     onAuthenticated: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -274,8 +277,21 @@ private fun AppNavHost(
             )
         }
         composable(Routes.HOME) {
+            val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
             HomeScreen(
+                twinId = twinId,
                 onOpenCheckin = { navController.navigate(Routes.CHECKIN) },
+                onOpenMatch = { item ->
+                    onSelectMatch(
+                        PendingMatch(
+                            twinId = item.otherTwinId,
+                            name = item.otherName,
+                            photoUrl = item.otherPhotoUrl,
+                            reason = item.reason ?: "Your twin thinks you two should talk.",
+                        ),
+                    )
+                    navController.navigate(Routes.MATCH)
+                },
             )
         }
         composable(Routes.CHECKIN) {

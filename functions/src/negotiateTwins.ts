@@ -151,6 +151,14 @@ export async function runNegotiation(
     // file header. notifyMatch reacts to this and sends a push notification
     // with a "say hi" prompt; nothing is auto-messaged or auto-scheduled.
     status: isMatch ? "confirmed" : "dismissed",
+    names: {
+      [twinIdA]: twinA.name || "Someone nearby",
+      [twinIdB]: twinB.name || "Someone nearby",
+    },
+    photoUrls: {
+      [twinIdA]: twinA.photoUrl ?? null,
+      [twinIdB]: twinB.photoUrl ?? null,
+    },
     updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
   };
 
