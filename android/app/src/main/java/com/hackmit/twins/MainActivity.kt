@@ -33,7 +33,7 @@ import com.hackmit.twins.auth.SignUpScreen
 import com.hackmit.twins.ble.BleProximityService
 import com.hackmit.twins.match.MatchScreen
 import com.hackmit.twins.onboarding.OnboardingScreen
-import com.hackmit.twins.ui.HomeScreen
+import com.hackmit.twins.ui.HomePagerScreen
 import com.hackmit.twins.ui.WelcomeScreen
 import com.hackmit.twins.ui.MatchFeedItem
 import com.hackmit.twins.ui.MatchFeedRepository
@@ -283,7 +283,7 @@ private fun AppNavHost(
         }
         composable(Routes.HOME) {
             val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
-            HomeScreen(
+            HomePagerScreen(
                 twinId = twinId,
                 onOpenMatch = { item ->
                     onSelectMatch(
