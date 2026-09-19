@@ -4,6 +4,7 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.tasks.await
 
 /** One row in the Home screen's live negotiation feed. */
 data class MatchFeedItem(
@@ -12,7 +13,20 @@ data class MatchFeedItem(
     val otherName: String,
     val otherPhotoUrl: String?,
     val reason: String?,
+    val score: Int?,
     val status: String, // "confirmed" | "dismissed" | "proposed" | "negotiating"
+)
+
+/** One line of the negotiation transcript, ready to render as a chat bubble. */
+data class NegotiationTurnUi(val fromMe: Boolean, val text: String)
+
+/** Full detail for the "why weren't we a match" screen. */
+data class NegotiationDetail(
+    val matchId: String,
+    val otherName: String,
+    val transcript: List<NegotiationTurnUi>,
+    val score: Int?,
+    val reason: String?,
 )
 
 /**
@@ -53,10 +67,41 @@ object MatchFeedRepository {
                         otherName = names[otherTwinId] ?: "Someone nearby",
                         otherPhotoUrl = photoUrls[otherTwinId],
                         reason = doc.getString("reason"),
+                        score = (doc.getLong("score"))?.toInt(),
                         status = doc.getString("status") ?: "dismissed",
                     )
                 }
                 onUpdate(items)
             }
+    }
+
+    /**
+     * One-shot fetch of the full negotiation (transcript included) for the
+     * detail screen — deliberately not part of the live list query above,
+     * which stays lightweight since it renders every recent item at once.
+     */
+    suspend fun fetchDetail(matchId: String, myTwinId: String): NegotiationDetail? {
+        val doc = db.collection("matches").document(matchId).get().await()
+        if (!doc.exists()) return null
+
+        @Suppress("UNCHECKED_CAST")
+        val twinIds = doc.get("twinIds") as? List<String> ?: return null
+        val otherTwinId = twinIds.firstOrNull { it != myTwinId }
+        @Suppress("UNCHECKED_CAST")
+        val names = doc.get("names") as? Map<String, String> ?: emptyMap()
+        @Suppress("UNCHECKED_CAST")
+        val rawTranscript = doc.get("transcript") as? List<Map<String, Any?>> ?: emptyList()
+
+        return NegotiationDetail(
+            matchId = matchId,
+            otherName = names[otherTwinId] ?: "Someone nearby",
+            transcript = rawTranscript.mapNotNull { turn ->
+                val speakerTwinId = turn["speakerTwinId"] as? String ?: return@mapNotNull null
+                val content = turn["content"] as? String ?: return@mapNotNull null
+                NegotiationTurnUi(fromMe = speakerTwinId == myTwinId, text = content)
+            },
+            score = (doc.getLong("score"))?.toInt(),
+            reason = doc.getString("reason"),
+        )
     }
 }

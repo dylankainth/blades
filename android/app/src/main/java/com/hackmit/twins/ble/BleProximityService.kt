@@ -31,7 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.nio.charset.StandardCharsets
+import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -57,11 +57,17 @@ class BleProximityService : Service() {
 
     private var myTwinId: String? = null
 
-    // De-dupe: avoid spamming Firestore with a write every single time we
-    // re-see the same nearby twin (BLE scan results can fire many times a
-    // second for one physical device). Simple in-memory set is fine for a
-    // hackathon demo; it resets when the service restarts.
-    private val recentlySeenTwinIds = ConcurrentHashMap.newKeySet<String>()
+    // Short random per-session identifier actually broadcast over BLE (see
+    // class doc + BleSessionRepository for why: a raw Firebase uid is far
+    // too large for a legacy BLE advertisement packet's 31-byte budget).
+    private var myToken: String = ""
+
+    // De-dupe: avoid spamming Firestore with a write (or a repeat token
+    // resolution lookup) every single time we re-see the same nearby
+    // token (BLE scan results can fire many times a second for one
+    // physical device). Simple in-memory set is fine for a hackathon
+    // demo; it resets when the service restarts.
+    private val recentlySeenTokens = ConcurrentHashMap.newKeySet<String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -80,8 +86,10 @@ class BleProximityService : Service() {
             return
         }
         myTwinId = twinId
+        myToken = generateToken()
         serviceScope.launch {
-            startAdvertising(twinId)
+            BleSessionRepository.registerToken(myToken, twinId)
+            startAdvertising(myToken)
             startScanning()
         }
     }
@@ -124,9 +132,9 @@ class BleProximityService : Service() {
 
     // ---- Advertising ----------------------------------------------------
 
-    private fun startAdvertising(twinId: String) {
+    private fun startAdvertising(token: String) {
         val adv = advertiser ?: run {
-            Log.w(TAG, "No BLE advertiser available on this device; cannot advertise twinId")
+            Log.w(TAG, "No BLE advertiser available on this device; cannot advertise")
             return
         }
 
@@ -136,10 +144,15 @@ class BleProximityService : Service() {
             .setConnectable(false) // broadcast-only, no GATT server backing this
             .build()
 
+        // Deliberately NOT calling addServiceUuid() here (a separate
+        // "Service UUID List" AD structure) — it costs another 18 bytes of
+        // a legacy advertisement packet's 31-byte budget for no benefit,
+        // since ScanFilter.setServiceData() below already filters on the
+        // service data's embedded UUID. Only the Service Data AD structure
+        // (2-byte header + 16-byte UUID + token bytes) is broadcast.
         val data = AdvertiseData.Builder()
             .setIncludeDeviceName(false)
-            .addServiceUuid(ParcelUuid(BleConstants.SERVICE_UUID))
-            .addServiceData(ParcelUuid(BleConstants.SERVICE_UUID), twinIdToBytes(twinId))
+            .addServiceData(ParcelUuid(BleConstants.SERVICE_UUID), tokenToBytes(token))
             .build()
 
         try {
@@ -173,8 +186,13 @@ class BleProximityService : Service() {
             return
         }
 
+        // Matches on the Service Data AD structure's embedded UUID (see
+        // startAdvertising's comment on why we don't also broadcast a
+        // separate Service UUID List). A null data/mask matches any
+        // payload carrying this service UUID, regardless of the token
+        // bytes that follow it.
         val filter = ScanFilter.Builder()
-            .setServiceUuid(ParcelUuid(BleConstants.SERVICE_UUID))
+            .setServiceData(ParcelUuid(BleConstants.SERVICE_UUID), null)
             .build()
 
         val settings = ScanSettings.Builder()
@@ -201,12 +219,19 @@ class BleProximityService : Service() {
             val serviceData = result.scanRecord
                 ?.getServiceData(ParcelUuid(BleConstants.SERVICE_UUID))
                 ?: return
-            val otherTwinId = bytesToTwinId(serviceData) ?: return
+            val token = bytesToToken(serviceData) ?: return
+            if (token == myToken) return // shouldn't happen, but guard anyway
             val myId = myTwinId ?: return
-            if (otherTwinId == myId) return // shouldn't happen, but guard anyway
 
-            if (recentlySeenTwinIds.add(otherTwinId)) {
-                onTwinDetected(myId, otherTwinId)
+            if (recentlySeenTokens.add(token)) {
+                // Resolve the short token to a real twinId via Firestore —
+                // see BleSessionRepository for why this indirection exists.
+                serviceScope.launch {
+                    val otherTwinId = BleSessionRepository.resolveToken(token)
+                    if (otherTwinId != null && otherTwinId != myId) {
+                        onTwinDetected(myId, otherTwinId)
+                    }
+                }
             }
         }
 
@@ -260,15 +285,30 @@ class BleProximityService : Service() {
             .build()
     }
 
+    /**
+     * 8 random bytes — comfortably fits a legacy BLE advertisement packet's
+     * 31-byte budget alongside the mandatory flags + service-data-UUID
+     * overhead (2 + 16 = 18 bytes), unlike a raw ~28-byte Firebase uid.
+     * 2^64 possible values is more than enough collision safety for a
+     * single event's concurrent advertisers.
+     */
+    private fun generateToken(): String {
+        val bytes = ByteArray(8)
+        SecureRandom().nextBytes(bytes)
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
     companion object {
         private const val TAG = "BleProximityService"
         private const val NOTIFICATION_ID = 42
 
-        private fun twinIdToBytes(twinId: String): ByteArray =
-            twinId.toByteArray(StandardCharsets.UTF_8)
+        private fun tokenToBytes(token: String): ByteArray =
+            ByteArray(token.length / 2) { i ->
+                token.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+            }
 
-        private fun bytesToTwinId(bytes: ByteArray): String? =
-            runCatching { String(bytes, StandardCharsets.UTF_8) }.getOrNull()
+        private fun bytesToToken(bytes: ByteArray): String? =
+            runCatching { bytes.joinToString("") { "%02x".format(it) } }.getOrNull()
 
         /** Order-independent so both devices in a pair compute the same id. */
         private fun syntheticPairLocationId(a: String, b: String): String {

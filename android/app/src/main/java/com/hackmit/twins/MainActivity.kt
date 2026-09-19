@@ -37,6 +37,9 @@ import com.hackmit.twins.onboarding.OnboardingScreen
 import com.hackmit.twins.ui.HomeScreen
 import com.hackmit.twins.ui.WelcomeScreen
 import com.hackmit.twins.ui.MatchFeedItem
+import com.hackmit.twins.ui.MatchFeedRepository
+import com.hackmit.twins.ui.NegotiationDetail
+import com.hackmit.twins.ui.NegotiationDetailScreen
 import com.hackmit.twins.ui.theme.DigitalTwinsTheme
 import kotlinx.coroutines.launch
 
@@ -48,6 +51,7 @@ private object Routes {
     const val HOME = "home"
     const val CHECKIN = "checkin"
     const val MATCH = "match"
+    const val NEGOTIATION_DETAIL = "negotiation_detail"
 }
 
 /** State for a pending match notification tap, held outside NavHost args
@@ -175,6 +179,9 @@ private fun AppNavHost(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    var selectedNegotiationItem by remember { mutableStateOf<MatchFeedItem?>(null) }
+    var negotiationDetail by remember { mutableStateOf<NegotiationDetail?>(null) }
+
     val googleSignInClient = remember {
         AuthManager.buildGoogleSignInClient(
             context,
@@ -292,7 +299,20 @@ private fun AppNavHost(
                     )
                     navController.navigate(Routes.MATCH)
                 },
+                onOpenNegotiationDetail = { item ->
+                    selectedNegotiationItem = item
+                    negotiationDetail = null
+                    navController.navigate(Routes.NEGOTIATION_DETAIL)
+                },
             )
+        }
+        composable(Routes.NEGOTIATION_DETAIL) {
+            val item = selectedNegotiationItem ?: return@composable
+            val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
+            LaunchedEffect(item.matchId) {
+                negotiationDetail = MatchFeedRepository.fetchDetail(item.matchId, twinId)
+            }
+            NegotiationDetailScreen(otherName = item.otherName, detail = negotiationDetail)
         }
         composable(Routes.CHECKIN) {
             val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable

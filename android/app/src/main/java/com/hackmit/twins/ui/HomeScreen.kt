@@ -60,6 +60,7 @@ fun HomeScreen(
     twinId: String,
     onOpenCheckin: () -> Unit,
     onOpenMatch: (MatchFeedItem) -> Unit,
+    onOpenNegotiationDetail: (MatchFeedItem) -> Unit,
 ) {
     var feed by remember { mutableStateOf<List<MatchFeedItem>>(emptyList()) }
 
@@ -134,7 +135,18 @@ fun HomeScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(feed) { item -> MatchFeedRow(item, onOpenMatch) }
+                    items(feed) { item ->
+                        MatchFeedRow(
+                            item = item,
+                            onClick = {
+                                if (item.status == "confirmed") {
+                                    onOpenMatch(item)
+                                } else {
+                                    onOpenNegotiationDetail(item)
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -142,15 +154,13 @@ fun HomeScreen(
 }
 
 @Composable
-private fun MatchFeedRow(item: MatchFeedItem, onOpenMatch: (MatchFeedItem) -> Unit) {
+private fun MatchFeedRow(item: MatchFeedItem, onClick: () -> Unit) {
     val isConfirmed = item.status == "confirmed"
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (isConfirmed) Modifier.clickable { onOpenMatch(item) } else Modifier,
-            ),
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = KindredColors.CardSurface),
         border = BorderStroke(1.dp, KindredColors.Border),
@@ -195,13 +205,11 @@ private fun MatchFeedRow(item: MatchFeedItem, onOpenMatch: (MatchFeedItem) -> Un
                 )
             }
 
-            if (isConfirmed) {
-                Text(
-                    text = "Say hi →",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = KindredColors.Accent,
-                )
-            }
+            Text(
+                text = if (isConfirmed) "Say hi →" else "See why →",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isConfirmed) KindredColors.Accent else KindredColors.TextSecondary,
+            )
         }
     }
 }

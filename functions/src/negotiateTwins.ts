@@ -53,14 +53,26 @@ match" conclusion). Never say you will message, notify, or schedule anything
 yourself — that is handled outside this conversation by a human.`;
 }
 
-const CONVERGENCE_PROMPT = `Based on this whole exchange, state in ONE short plain-language sentence
-(no percentages, no scores) the single best concrete reason these two people
-should meet — or, if you both concluded it's not a strong match, say "NO_MATCH"
-followed by a one-sentence reason why not. Respond with just that sentence.`;
+const MATCH_SCORE_THRESHOLD = 70;
+
+const CONVERGENCE_PROMPT = `Based on this whole exchange, respond with ONLY a raw JSON object (no
+markdown fences, no commentary) with exactly two fields: "score" (an integer
+0-100 for how strong a reason these two people have to meet — be honest and
+use the full range, most pairs should NOT score above 70) and "reason" (ONE
+short plain-language sentence: if the score is high, the single best
+concrete reason they should meet; if it's low, the honest reason they
+probably shouldn't bother — no percentages or scores inside this sentence,
+those go in the "score" field only).`;
+
+interface Convergence {
+  score: number;
+  reason: string;
+}
 
 export interface RunNegotiationResult {
   matchId: string;
   reason: string | null;
+  score: number | null;
   isMatch: boolean;
   transcript: NegotiationTurn[];
 }
@@ -129,24 +141,24 @@ export async function runNegotiation(
     historyForA.push({ role: "user", content: replyB });
   }
 
-  // Ask twin A's persona to converge on a final plain-language verdict.
-  const convergence = await callMetaModel({
+  // Ask twin A's persona to converge on a final score + reason.
+  const convergenceRaw = await callMetaModel({
     apiKey: opts.apiKey,
     system: personaSystemPrompt(twinA, twinB),
     messages: [...historyForA, { role: "user", content: CONVERGENCE_PROMPT }],
   });
-
-  const isMatch = !convergence.trim().toUpperCase().startsWith("NO_MATCH");
-  const reason = isMatch
-    ? convergence.trim()
-    : convergence.replace(/^NO_MATCH:?\s*/i, "").trim() || null;
+  const convergence = parseConvergence(convergenceRaw);
+  const isMatch = convergence.score >= MATCH_SCORE_THRESHOLD;
 
   const matchDoc: Partial<MatchDoc> = {
     matchId,
     twinIds: [twinIdA, twinIdB].sort() as [string, string],
     locationId: opts.locationId ?? null,
     transcript,
-    reason: isMatch ? reason : null,
+    // Kept regardless of outcome — the "why not" is exactly what a
+    // dismissed match's detail view shows (see HomeScreen's feed).
+    reason: convergence.reason || null,
+    score: convergence.score,
     // "confirmed" here only means "worth surfacing to the humans" — see
     // file header. notifyMatch reacts to this and sends a push notification
     // with a "say hi" prompt; nothing is auto-messaged or auto-scheduled.
@@ -167,7 +179,31 @@ export async function runNegotiation(
     { merge: true },
   );
 
-  return { matchId, reason: matchDoc.reason ?? null, isMatch, transcript };
+  return {
+    matchId,
+    reason: matchDoc.reason ?? null,
+    score: convergence.score,
+    isMatch,
+    transcript,
+  };
+}
+
+/** Best-effort JSON parse with a safe fallback — a malformed convergence
+ *  response shouldn't fail the whole negotiation, just default to "not a
+ *  strong match" with whatever text came back as the reason. */
+function parseConvergence(raw: string): Convergence {
+  try {
+    const jsonText = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
+    const parsed = JSON.parse(jsonText) as Partial<Convergence>;
+    const score = typeof parsed.score === "number"
+      ? Math.max(0, Math.min(100, Math.round(parsed.score)))
+      : 0;
+    const reason = typeof parsed.reason === "string" ? parsed.reason : "";
+    return { score, reason };
+  } catch (err) {
+    console.error("Convergence parse failed, defaulting to no-match:", err);
+    return { score: 0, reason: raw.trim().slice(0, 300) };
+  }
 }
 
 interface NegotiateTwinsRequest {
