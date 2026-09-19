@@ -26,12 +26,12 @@ full product context.
 
 ## Before this builds or runs
 
-1. **`app/google-services.json`** — does not exist yet (see
-   `app/google-services.json.TODO` for exact instructions). Register a
-   Firebase Android app with applicationId `com.hackmit.twins`, download the
-   real config, and drop it in at `app/google-services.json`. Enable
-   Anonymous Auth, Firestore, Cloud Functions, and Cloud Messaging in that
-   Firebase project.
+1. **`app/google-services.json`** — checked into the repo (project
+   `blades-a38f5`, applicationId `com.blade.app`). Not treated as a secret:
+   Firebase client config is meant to ship inside the built app and is
+   protected by Firestore/App Check security rules, not by hiding the
+   file — fine to commit in this private repo. Anonymous Auth, Firestore,
+   Cloud Functions, and Cloud Messaging are enabled on that project.
 2. **Real BLE service UUID** — `ble/BleConstants.kt` has a placeholder
    128-bit UUID. Generate a real random one (`uuidgen`) and swap it in. All
    installs of the app must share the same UUID.
@@ -45,13 +45,13 @@ full product context.
    `gradle/wrapper/gradle-wrapper.jar` and `gradlew`/`gradlew.bat`, or open
    the project directly in Android Studio, which will bootstrap the wrapper
    for you.
-5. **Backend pieces this app assumes exist** (not part of this scaffold):
-   - `onboardingChat` HTTPS callable Cloud Function.
-   - A Cloud Function watching `checkins/{locationId}/people/*` that runs
-     the matching engine and sends the FCM push with `matchedTwinId`,
-     `matchedName`, `matchedPhotoUrl`, `reason` in the data payload.
-   - Somewhere to store each twin's FCM token against its twinId (see the
-     TODO in `TwinMessagingService.onNewToken`).
+5. **Backend** — `onboardingChat`, `onCheckin`, `negotiateTwins`, and
+   `notifyMatch` all exist in `../functions/` and deploy to the same
+   Firebase project. See `functions/README.md` for the one remaining
+   secret to set (`META_MODEL_API_KEY`) before they'll actually run.
+   `TwinMessagingService.onNewToken` still has a TODO to persist the FCM
+   token against the twin's Firestore doc — wire that up so `notifyMatch`
+   has somewhere to send pushes.
 
 ## Known scaffold gaps (fine for a hackathon prototype, flagged for later)
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "110415722590",
+    "project_id": "blades-a38f5",
+    "storage_bucket": "blades-a38f5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:110415722590:android:06d015e779f96306049ccf",
+        "android_client_info": {
+          "package_name": "com.blade.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8EAo8YKxFZO4DLjjLUdqJEY5NnW_GblQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
