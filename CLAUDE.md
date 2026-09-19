@@ -67,6 +67,13 @@ event scale, and directly usable on ourselves in the room in front of judges.
      ("tell me about yourself, what are you hoping to get out of this
      weekend"). Faster to build, never breaks live, and feels more personal
      than "we read your LinkedIn."
+   - Scoped exception: **Facebook Login for name + profile photo only**, to
+     skip a manual selfie step and tie into the Meta track. Deliberately
+     not used for deeper data (friends, likes/interests) — since 2018,
+     Graph API gates anything beyond `public_profile`/`email` behind Meta's
+     App Review process, which takes days to weeks and will not clear in
+     time. The conversational onboarding stays the real signal source;
+     Facebook Login is just a photo/name convenience, not a crawl.
 
 2. **1000×1000 pairwise agent negotiation** — combinatorially this is ~500k
    conversations, not feasible or necessary.
@@ -85,13 +92,83 @@ event scale, and directly usable on ourselves in the room in front of judges.
 
 3. **True background proximity detection (BLE/phone background location) as
    you "walk past someone"** — real background Bluetooth proximity on
-   iOS/web is not a weekend build; OS permission plumbing alone eats the
-   available time.
-   - Fix: fake the physical/sensor layer, keep the intelligence layer real.
-     Use QR check-in stations around the venue, or a simple "I'm near booth
-     X" web check-in, to trigger the real matching engine and a real push
-     notification. Nobody will know (or care) how proximity was detected —
-     they'll remember what the phone said.
+   iOS/web is not a weekend build in general; OS permission plumbing alone
+   eats the available time, and web (PWA) background BLE/geolocation on
+   Android is too unreliable (service workers get suspended, no real
+   background Web Bluetooth scanning) to demo live.
+   - Scope decision: build it for real, Android-only, as a native app
+     (Kotlin, not Flutter — no cross-platform need since iOS is out of
+     scope, and talking to Android's BLE/foreground-service/background-
+     location APIs directly avoids an extra plugin-abstraction layer that
+     could misbehave under time pressure). A foreground/background service
+     advertises + scans BLE to detect nearby twins and feeds real proximity
+     events into the matching engine from item 2. This replaces the earlier
+     "fake the sensor, use QR check-in" fallback as the primary plan — keep
+     QR/manual check-in as a backup trigger in case live BLE demo
+     conditions are bad (venue RF noise, permission denial, etc.).
+
+## Stack decisions
+
+- **Android app: Kotlin + Jetpack Compose, native — not Flutter, not Expo/RN.**
+  Reason is specific to BLE, not general dev speed: BLE *central* (scanning)
+  is well-supported by cross-platform libraries, but BLE *peripheral*
+  (advertising) — which this app needs, since every phone must advertise
+  and scan simultaneously — is thin and poorly maintained in both the RN
+  and Flutter ecosystems. Native gives direct control over the one
+  component the whole demo hinges on, instead of debugging someone else's
+  plugin internals through a bridge under time pressure. Also want direct
+  manifest control for Android 14's foreground-service-type declarations.
+  No cross-platform cost paid since there's no iOS target.
+- **BLE approach: broadcast-only, no GATT connections.** Each phone
+  advertises its twin ID in the BLE advertisement payload (manufacturer/
+  service data); other phones detect it via scanning. No pairing or
+  connection handshake needed — this is the same pattern contact-tracing
+  and proximity apps use, and it's far more reliable at a crowded venue
+  than trying to form BLE connections between many phones.
+- **Permissions**: on Android 12+, request `BLUETOOTH_SCAN` with the
+  `neverForLocation` flag so background BLE scanning doesn't also require
+  location permission — avoids an extra permission prompt live on stage.
+- **Foreground service, not "app must be open."** A foreground service
+  keeps BLE advertise/scan running while the app is backgrounded or the
+  screen is off — it does not require the UI to be visible. Trade-offs to
+  handle explicitly: (1) Android requires a persistent, unremovable
+  notification while it runs — plan for it rather than fight it; (2) OEM
+  battery killers (Samsung/Xiaomi/etc.) can still kill foreground services
+  regardless of stock Android rules — prompt the user to disable battery
+  optimization for the app; (3) swiping the app away from Recents can kill
+  the service depending on `onTaskRemoved` handling — test this specific
+  case, since it's a natural thing to do while walking around an event.
+- **Backend: Firebase** (Firestore + Cloud Functions + FCM) as a single
+  vendor, to avoid gluing together separate DB/functions/push infra under
+  time pressure.
+- **Models: Claude for onboarding conversation, Meta Muse Spark for
+  twin-to-twin negotiation.** Muse Spark (Meta's frontier model, via the
+  self-serve Meta Model API — developer.meta.com, $20 free credit, then
+  pay-as-you-go) is purpose-built and marketed for multi-agent
+  orchestration/tool-calling, which is a direct, literal match for the
+  negotiation step specifically — using Meta's own agent-orchestration
+  model for the actual agent-to-agent negotiation is the strongest
+  "essential and well-integrated AI" story for the Meta/Facebook track.
+  Onboarding chat (rapport-building, personality-driven interview) stays
+  on Claude since there's no requirement to use one vendor for everything
+  — double-check the actual HackMIT track rules on exclusivity though.
+- **Cloud Functions architecture for chat**: no long-lived session/
+  connection needed. Multi-turn onboarding chat is a sequence of short,
+  stateless request/response turns — each turn reads the conversation
+  transcript from Firestore, appends the new message, calls the model,
+  writes the response back. Firestore holds the state between turns; the
+  function itself doesn't need to stay alive. Use **Cloud Functions 2nd
+  gen** (Cloud Run-backed, up to 60 min timeout) over 1st gen (60s
+  default) for headroom, not because any single turn should take anywhere
+  near that long. Skip token-by-token streaming (possible on 2nd gen via
+  Cloud Run response streaming, but not worth the added complexity/risk
+  for a hackathon) — a plain request/response with a UI typing-indicator
+  is enough. The one part worth sanity-checking once running: if twin
+  negotiation involves several agentic back-and-forth turns per pair, time
+  it — should still land in seconds, but confirm rather than assume.
+- **Judge-facing negotiation view: a lightweight web page** (plain JS or
+  React) subscribed live to a Firestore collection — not a second mobile
+  screen — so it can run on a laptop while presenting.
 
 ## What to actually build, in priority order
 
@@ -108,13 +185,27 @@ event scale, and directly usable on ourselves in the room in front of judges.
    specifically) — show two twins' actual exchange on screen, not just the
    final output. This is the "wow" moment: visible negotiation collapsing
    into a human-readable outcome.
-5. **Proximity trigger** — fake sensor (QR/check-in) that also *drives* the
-   matching engine: a check-in triggers live pairwise negotiation against
-   whoever else is currently at that location, not a lookup against a
-   precomputed global shortlist.
+5. **Proximity trigger** — native Android app (Kotlin) doing real BLE
+   background advertise/scan to detect nearby twins; a detected proximity
+   event triggers live pairwise negotiation against whoever's actually
+   nearby, not a lookup against a precomputed global shortlist. Keep
+   QR/manual check-in wired up as a fallback trigger for demo-day
+   reliability.
 
 ## Interface notes (priority: interface is the product)
 
+- **Pages/screens needed** (five, all in the one native Android app except
+  the last):
+  1. Onboarding chat — the ~90-second conversational twin-creation flow.
+  2. Check-in / proximity — mostly invisible (BLE runs via the background
+     service), but keep a manual QR/"I'm at booth X" check-in UI as a
+     fallback trigger.
+  3. Notification screen — the centerpiece; see tone notes below.
+  4. Match/handoff screen — what tapping the notification opens into.
+  5. Judge-facing negotiation view — separate lightweight web page (not
+     in the Android app), live-subscribed to Firestore.
+  Everything else (twin list/dashboard, settings, match history) is
+  nice-to-have, not demo-critical — skip unless time is left over.
 - Mock the phone notification screen first, before backend work — get the
   wording, tone, and visuals nailed down early since it's the single screen
   that carries the whole pitch.
