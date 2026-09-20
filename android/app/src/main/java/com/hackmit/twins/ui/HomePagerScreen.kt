@@ -34,6 +34,7 @@ fun HomePagerScreen(
     twinId: String,
     onOpenMatch: (MatchFeedItem) -> Unit,
     onOpenNegotiationDetail: (MatchFeedItem) -> Unit,
+    onLogout: () -> Unit,
 ) {
     var feed by remember { mutableStateOf<List<MatchFeedItem>>(emptyList()) }
     DisposableEffect(twinId) {
@@ -67,6 +68,7 @@ fun HomePagerScreen(
             )
             else -> HomeScreen(
                 onShowRecent = { scope.launch { pagerState.animateScrollToPage(1) } },
+                onLogout = onLogout,
             )
         }
     }

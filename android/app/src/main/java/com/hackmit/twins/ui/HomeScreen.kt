@@ -64,13 +64,13 @@ private val SPLASH_MESSAGES = listOf(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onShowRecent: () -> Unit) {
+fun HomeScreen(onShowRecent: () -> Unit, onLogout: () -> Unit) {
     Scaffold(
         containerColor = KlickColors.PageBackground,
         topBar = {
             TopAppBar(
                 title = { Text("Klick") },
-                actions = { BadgeMenu() },
+                actions = { BadgeMenu(onLogout = onLogout) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = KlickColors.PageBackground,
                 ),
