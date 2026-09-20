@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5173", "--directory", "judge-dashboard"],
       "port": 5173
+    },
+    {
+      "name": "submissions",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5174", "--directory", "submissions"],
+      "port": 5174
     }
   ]
 }
