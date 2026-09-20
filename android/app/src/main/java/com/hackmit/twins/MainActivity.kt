@@ -169,8 +169,22 @@ class MainActivity : ComponentActivity() {
         ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
     }
 
+    /**
+     * Always stops the service first, even if it's not currently running
+     * (a harmless no-op in that case). BleProximityService only reads
+     * AuthManager's current twinId once, in onCreate() — if it's already
+     * alive from an earlier session in this same process (e.g. someone
+     * signed out and into a different account, or created a fresh account,
+     * without the app process itself restarting), a plain
+     * startForegroundService() call only reaches onStartCommand() and the
+     * service keeps advertising/negotiating under the STALE twinId
+     * indefinitely. Forcing a stop+start here guarantees onCreate() runs
+     * again with whoever is actually signed in now.
+     */
     private fun startBleService() {
-        ContextCompat.startForegroundService(this, Intent(this, BleProximityService::class.java))
+        val intent = Intent(this, BleProximityService::class.java)
+        stopService(intent)
+        ContextCompat.startForegroundService(this, intent)
     }
 
     private fun extractPendingNav(intent: Intent?): PendingNav? {
