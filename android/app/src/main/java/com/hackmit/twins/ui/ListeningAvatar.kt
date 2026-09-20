@@ -1,5 +1,16 @@
 package com.hackmit.twins.ui
 
+import kotlinx.coroutines.Job
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -53,6 +64,29 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier, onDark: Boolean = f
     // around the face and two soft rings. Eyes, blink and mouth still change
     // — they snap rather than glide — so the twin stays alive.
     val reducedMotion = rememberReducedMotion()
+
+    // Poke the twin and it squishes, then beams at you for a moment: happy
+    // closed eyes, a smile and a blush. Purely for delight. With reduced
+    // motion on, the squish snaps but the happy face still shows.
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    val squish = remember { Animatable(0f) }
+    var delighted by remember { mutableStateOf(false) }
+    var delightJob by remember { mutableStateOf<Job?>(null) }
+    fun poke() {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        delightJob?.cancel()
+        delightJob = scope.launch {
+            delighted = true
+            squish.animateTo(1f, tween(90))
+            squish.animateTo(
+                0f,
+                spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessMedium),
+            )
+            delay(DELIGHT_HOLD_MS)
+            delighted = false
+        }
+    }
     val eyeOffsetX = remember { Animatable(0f) }
     val eyeOffsetY = remember { Animatable(0f) }
     var blinking by remember { mutableStateOf(false) }
@@ -128,7 +162,22 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier, onDark: Boolean = f
         label = "orbit2",
     )
 
-    Canvas(modifier = modifier.size(size)) {
+    Canvas(
+        modifier = modifier
+            .size(size)
+            // Squash towards the ground, like something soft being pressed.
+            .graphicsLayer {
+                scaleX = 1f + SQUISH_WIDEN * squish.value
+                scaleY = 1f - SQUISH_FLATTEN * squish.value
+                transformOrigin = TransformOrigin(0.5f, 1f)
+            }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null, // the squish is the feedback
+                onClickLabel = "Poke the Klick mascot",
+                onClick = ::poke,
+            ),
+    ) {
         val s = this.size.minDimension
         val center = Offset(s / 2, s / 2)
         val cornerRadius = CornerRadius(s * 0.3f)
@@ -177,28 +226,70 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier, onDark: Boolean = f
         val eyeGap = s * 0.16f
         val eyeShift = s * 0.05f
         val eyeY = center.y - eyeH / 2 * blinkScale
-        listOf(-1, 1).forEach { side ->
-            val eyeX = center.x + side * eyeGap / 2 - eyeW / 2 + eyeOffsetX.value * eyeShift
+        val mouthH = s * 0.045f
+
+        if (delighted) {
+            // Happy face: eyes close into upward arcs, the mouth curves into
+            // a smile, and a soft blush appears on each cheek.
+            val stroke = Stroke(width = mouthH, cap = StrokeCap.Round)
+            val arcW = s * 0.15f
+            val arcH = s * 0.13f
+            listOf(-1, 1).forEach { side ->
+                val eyeCenterX = center.x + side * (eyeGap / 2 + eyeW / 2)
+                drawArc(
+                    color = featureColor,
+                    startAngle = 180f,
+                    sweepAngle = 180f,
+                    useCenter = false,
+                    topLeft = Offset(eyeCenterX - arcW / 2, center.y - arcH * 0.75f),
+                    size = Size(arcW, arcH),
+                    style = stroke,
+                )
+                drawCircle(
+                    color = KlickColors.Accent.copy(alpha = 0.55f),
+                    radius = s * 0.055f,
+                    center = Offset(center.x + side * s * 0.29f, center.y + s * 0.13f),
+                )
+            }
+            val smileW = s * 0.26f
+            val smileH = s * 0.16f
+            drawArc(
+                color = featureColor,
+                startAngle = 0f,
+                sweepAngle = 180f,
+                useCenter = false,
+                topLeft = Offset(center.x - smileW / 2, center.y + s * 0.07f),
+                size = Size(smileW, smileH),
+                style = stroke,
+            )
+        } else {
+            listOf(-1, 1).forEach { side ->
+                val eyeX = center.x + side * eyeGap / 2 - eyeW / 2 + eyeOffsetX.value * eyeShift
+                drawRoundRect(
+                    color = featureColor,
+                    topLeft = Offset(eyeX, eyeY + eyeOffsetY.value * eyeShift),
+                    size = Size(eyeW, eyeH * blinkScale),
+                    cornerRadius = CornerRadius(eyeW / 2),
+                )
+            }
+
+            // Mouth: a pill whose width breathes to suggest quiet activity.
+            val mouthW = s * mouthWidthFraction.value
             drawRoundRect(
                 color = featureColor,
-                topLeft = Offset(eyeX, eyeY + eyeOffsetY.value * eyeShift),
-                size = Size(eyeW, eyeH * blinkScale),
-                cornerRadius = CornerRadius(eyeW / 2),
+                topLeft = Offset(center.x - mouthW / 2, center.y + s * 0.14f),
+                size = Size(mouthW, mouthH),
+                cornerRadius = CornerRadius(mouthH / 2),
             )
         }
-
-        // Mouth: a pill whose width breathes to suggest quiet activity.
-        val mouthW = s * mouthWidthFraction.value
-        val mouthH = s * 0.045f
-        drawRoundRect(
-            color = featureColor,
-            topLeft = Offset(center.x - mouthW / 2, center.y + s * 0.14f),
-            size = Size(mouthW, mouthH),
-            cornerRadius = CornerRadius(mouthH / 2),
-        )
     }
 }
 
 /** Still-frame pose used when system animations are off. */
 private val STILL_ORBITS = listOf(205f, 330f, 80f)
 private val STILL_RINGS = listOf(0.3f, 0.68f)
+
+/** How long the happy face stays after a poke. */
+private const val DELIGHT_HOLD_MS = 900L
+private const val SQUISH_WIDEN = 0.12f
+private const val SQUISH_FLATTEN = 0.16f
