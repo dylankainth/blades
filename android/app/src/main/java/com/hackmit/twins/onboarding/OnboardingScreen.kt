@@ -54,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -281,7 +282,11 @@ fun OnboardingScreen(
                 Log.e("Onboarding", "submitBoundaries failed", e)
             } finally {
                 isSavingBoundaries = false
-                step = 2
+                // Show the "building your twin" beat between steps 2 and 3
+                // (not after step 3) — it's the transition into "You're in",
+                // not a hand-off to Home. TwinBuildingScreen's onComplete
+                // below advances to step 2 once it finishes.
+                showBuilding = true
             }
         }
     }
@@ -314,20 +319,29 @@ fun OnboardingScreen(
                 }
             }
 
+            // Step 3 ("You're in") is a standalone completion beat, not
+            // another form to fill in — no step counter, and everything
+            // centered in the middle of the page rather than anchored top,
+            // unlike steps 1-2's guided-form layout.
+            val isCompleteStep = step == 2
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp),
+                verticalArrangement = if (isCompleteStep) Arrangement.Center else Arrangement.Top,
+                horizontalAlignment = if (isCompleteStep) Alignment.CenterHorizontally else Alignment.Start,
             ) {
-                Text(
-                    text = "STEP ${step + 1} OF $TOTAL_STEPS",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = KlickColors.TextSecondary,
-                    letterSpacing = 0.08.em,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                if (!isCompleteStep) {
+                    Text(
+                        text = "STEP ${step + 1} OF $TOTAL_STEPS",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = KlickColors.TextSecondary,
+                        letterSpacing = 0.08.em,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 Text(
                     text = when (step) {
                         0 -> "Connect your\ncontext"
@@ -340,6 +354,7 @@ fun OnboardingScreen(
                     lineHeight = 44.sp,
                     letterSpacing = (-0.02).em,
                     color = KlickColors.TextPrimary,
+                    textAlign = if (isCompleteStep) TextAlign.Center else TextAlign.Start,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -350,6 +365,7 @@ fun OnboardingScreen(
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = KlickColors.TextSecondary,
+                    textAlign = if (isCompleteStep) TextAlign.Center else TextAlign.Start,
                 )
                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -388,7 +404,7 @@ fun OnboardingScreen(
                         when (step) {
                             0 -> step = 1
                             1 -> saveBoundariesAndAdvance()
-                            else -> showBuilding = true
+                            else -> onOnboardingComplete()
                         }
                     },
                     enabled = !isSavingBoundaries,
@@ -580,7 +596,12 @@ fun OnboardingScreen(
     }
 
     if (showBuilding) {
-        TwinBuildingScreen(onComplete = onOnboardingComplete)
+        TwinBuildingScreen(
+            onComplete = {
+                showBuilding = false
+                step = 2
+            },
+        )
     }
 }
 
