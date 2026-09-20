@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 830" width="1240" height="830" role="img" aria-label="Klick architecture: two phones and badges detect each other over BLE, which triggers a twin-to-twin negotiation on Meta Muse Spark, producing a notification, a redacted judge feed, and token usage — ending in a mutual human approval gate.">
+  <defs>
+    <style>
+      .f    { font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      .band { font-size: 11px; font-weight: 600; letter-spacing: 1.6px; fill: #A3A09B; }
+      .h    { font-size: 15px; font-weight: 600; fill: #1C1B1A; letter-spacing: -0.2px; }
+      .hs   { font-size: 13px; font-weight: 600; fill: #1C1B1A; letter-spacing: -0.1px; }
+      .p    { font-size: 12px; fill: #8E8A85; }
+      .mono { font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #8E8A85; }
+      .acc  { fill: #C97B45; }
+      .eyeb { font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; fill: #C97B45; }
+    </style>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#A3A09B"/>
+    </marker>
+    <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#C97B45"/>
+    </marker>
+  </defs>
+
+  <rect width="1240" height="830" fill="#EEECE9"/>
+
+  <!-- ── Header ─────────────────────────────────────── -->
+  <g class="f">
+    <text x="48" y="54" font-size="26" font-weight="700" fill="#1C1B1A" letter-spacing="-0.6">Klick</text>
+    <text x="118" y="54" font-size="15" fill="#8E8A85">How one introduction gets made</text>
+  </g>
+  <line x1="48" y1="76" x2="1192" y2="76" stroke="#DEDAD5" stroke-width="1"/>
+
+  <!-- ══ BAND 1 — in the room ═══════════════════════════ -->
+  <text class="f band" x="48" y="112">IN THE ROOM</text>
+
+  <!-- Person A -->
+  <g class="f">
+    <rect x="48" y="128" width="392" height="132" rx="16" fill="#FCFBFA" stroke="#DEDAD5"/>
+    <text x="72" y="156" class="eyeb">PERSON A</text>
+    <rect x="72" y="170" width="160" height="66" rx="11" fill="#F3F1EE" stroke="#DEDAD5"/>
+    <text x="88" y="196" class="hs">Android app</text>
+    <text x="88" y="216" class="p">BLE advertise + scan</text>
+    <rect x="248" y="170" width="168" height="66" rx="11" fill="#F3F1EE" stroke="#DEDAD5"/>
+    <text x="264" y="196" class="hs">Badge</text>
+    <text x="264" y="216" class="p">ESP32-S3, worn</text>
+  </g>
+
+  <!-- Person B -->
+  <g class="f">
+    <rect x="800" y="128" width="392" height="132" rx="16" fill="#FCFBFA" stroke="#DEDAD5"/>
+    <text x="824" y="156" class="eyeb">PERSON B</text>
+    <rect x="824" y="170" width="160" height="66" rx="11" fill="#F3F1EE" stroke="#DEDAD5"/>
+    <text x="840" y="196" class="hs">Android app</text>
+    <text x="840" y="216" class="p">BLE advertise + scan</text>
+    <rect x="1000" y="170" width="168" height="66" rx="11" fill="#F3F1EE" stroke="#DEDAD5"/>
+    <text x="1016" y="196" class="hs">Badge</text>
+    <text x="1016" y="216" class="p">ESP32-S3, worn</text>
+  </g>
+
+  <!-- BLE between them -->
+  <g fill="none" stroke="#C97B45" stroke-width="1.6" stroke-linecap="round">
+    <path d="M492 203 a 26 26 0 0 1 0 -32" opacity="0.35"/>
+    <path d="M504 213 a 40 40 0 0 1 0 -52" opacity="0.6"/>
+    <path d="M516 223 a 54 54 0 0 1 0 -72" opacity="0.9"/>
+    <path d="M748 203 a 26 26 0 0 0 0 -32" opacity="0.35"/>
+    <path d="M736 213 a 40 40 0 0 0 0 -52" opacity="0.6"/>
+    <path d="M724 223 a 54 54 0 0 0 0 -72" opacity="0.9"/>
+  </g>
+  <circle cx="620" cy="187" r="5" fill="#C97B45"/>
+  <text class="f" x="620" y="243" text-anchor="middle" font-size="11.5" font-weight="600" fill="#C97B45" letter-spacing="0.8">THEY CROSS PATHS</text>
+
+  <!-- ══ BAND 2 — the trigger ═══════════════════════════ -->
+  <text class="f band" x="48" y="300">THE TRIGGER</text>
+  <path d="M620 262 L620 306" stroke="#A3A09B" stroke-width="1.4" marker-end="url(#a)" fill="none"/>
+
+  <g class="f">
+    <rect x="428" y="314" width="384" height="62" rx="13" fill="#FCFBFA" stroke="#DEDAD5"/>
+    <text x="452" y="340" class="hs">Firestore check-in</text>
+    <text x="452" y="360" class="mono">checkins/{locationId}/people/{twinId}</text>
+  </g>
+  <text class="f p" x="828" y="352">Written for both twins — proximity is the only thing that starts a negotiation</text>
+
+  <!-- ══ BAND 3 — the negotiation (the hero) ════════════ -->
+  <text class="f band" x="48" y="416">THE NEGOTIATION</text>
+  <path d="M620 378 L620 424" stroke="#C97B45" stroke-width="1.6" marker-end="url(#aa)" fill="none"/>
+
+  <rect x="48" y="432" width="1144" height="176" rx="18" fill="#FCFBFA" stroke="#C97B45" stroke-width="1.8"/>
+  <rect x="48" y="432" width="5" height="176" rx="2.5" fill="#C97B45"/>
+
+  <g class="f">
+    <text x="80" y="464" class="eyeb">negotiateTwins.ts &#183; Meta Muse Spark</text>
+
+    <!-- Twin A -->
+    <rect x="80" y="482" width="300" height="100" rx="13" fill="#F0E2D6" stroke="#E4D0BE"/>
+    <text x="102" y="510" class="hs">Twin A</text>
+    <text x="102" y="532" class="p">Argues, honestly, whether</text>
+    <text x="102" y="550" class="p">A should meet B — and says</text>
+    <text x="102" y="568" class="p">so plainly when they shouldn't.</text>
+
+    <!-- exchange -->
+    <g fill="none" stroke="#C97B45" stroke-width="1.5">
+      <path d="M392 512 L488 512" marker-end="url(#aa)"/>
+      <path d="M488 552 L392 552" marker-end="url(#aa)"/>
+    </g>
+    <text x="440" y="500" text-anchor="middle" font-size="10.5" font-weight="600" fill="#C97B45" letter-spacing="0.6">2 ROUNDS</text>
+    <text x="440" y="578" text-anchor="middle" class="p" font-size="11">each</text>
+
+    <!-- Twin B -->
+    <rect x="500" y="482" width="300" height="100" rx="13" fill="#F0E2D6" stroke="#E4D0BE"/>
+    <text x="522" y="510" class="hs">Twin B</text>
+    <text x="522" y="532" class="p">Built from a 90-second spoken</text>
+    <text x="522" y="550" class="p">onboarding, plus any LinkedIn</text>
+    <text x="522" y="568" class="p">or public web context imported.</text>
+
+    <!-- converge -->
+    <path d="M812 532 L868 532" stroke="#C97B45" stroke-width="1.5" marker-end="url(#aa)" fill="none"/>
+    <rect x="880" y="482" width="288" height="100" rx="13" fill="#1C1B1A"/>
+    <text x="902" y="510" class="f" font-size="10.5" font-weight="700" letter-spacing="1.4" fill="#C97B45">ONE SENTENCE</text>
+    <text x="902" y="536" class="f" font-size="12.5" fill="#FCFBFA">&#8220;You both organize London</text>
+    <text x="902" y="556" class="f" font-size="12.5" fill="#FCFBFA">student hackathons and</text>
+    <text x="902" y="576" class="f" font-size="12.5" fill="#FCFBFA">build with AI.&#8221;</text>
+  </g>
+
+  <!-- ══ BAND 4 — outputs ═══════════════════════════════ -->
+  <text class="f band" x="48" y="648">WHAT COMES OUT</text>
+
+  <g fill="none" stroke="#A3A09B" stroke-width="1.4">
+    <path d="M1024 610 L1024 632 L216 632 L216 662" marker-end="url(#a)"/>
+    <path d="M620 632 L620 662" marker-end="url(#a)"/>
+    <path d="M1024 632 L1024 662" marker-end="url(#a)"/>
+  </g>
+
+  <g class="f">
+    <rect x="48" y="670" width="336" height="88" rx="14" fill="#FCFBFA" stroke="#DEDAD5"/>
+    <text x="72" y="698" class="hs">Push notification</text>
+    <text x="72" y="720" class="p">&#8220;Your twin found someone&#8221;</text>
+    <text x="72" y="738" class="p">+ the reason. Deepgram whispers it.</text>
+
+    <rect x="452" y="670" width="336" height="88" rx="14" fill="#FCFBFA" stroke="#DEDAD5"/>
+    <text x="476" y="698" class="hs">Judge feed <tspan class="p" font-size="11.5">&#183; redacted</tspan></text>
+    <text x="476" y="720" class="p">Full transcript for a match.</text>
+    <text x="476" y="738" class="p">Outcome only for a dismissal.</text>
+
+    <rect x="856" y="670" width="336" height="88" rx="14" fill="#FCFBFA" stroke="#DEDAD5"/>
+    <text x="880" y="698" class="hs">Token usage</text>
+    <text x="880" y="720" class="p">Recorded per negotiation,</text>
+    <text x="880" y="738" class="p">dismissals included.</text>
+  </g>
+
+  <!-- ══ BAND 5 — the human gate ════════════════════════ -->
+  <path d="M216 766 L216 788 L560 788" stroke="#A3A09B" stroke-width="1.4" fill="none" marker-end="url(#a)"/>
+
+  <g class="f">
+    <rect x="572" y="770" width="620" height="38" rx="19" fill="#1C1B1A"/>
+    <circle cx="600" cy="789" r="4.5" fill="#C97B45"/>
+    <text x="616" y="794" font-size="12.5" font-weight="600" fill="#FCFBFA">Both people approve before either name is revealed.</text>
+    <text x="948" y="794" font-size="12.5" fill="#A3A09B">Nothing is ever sent on your behalf.</text>
+  </g>
+  <text class="f band" x="48" y="794">THE HUMAN GATE</text>
+</svg>
