@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
@@ -108,77 +110,83 @@ fun MatchTeaserScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = "Klick found someone",
-                style = MaterialTheme.typography.labelLarge,
-                color = KlickColors.Accent,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            if (d.otherPhotoUrl != null) {
-                AsyncImage(
-                    model = d.otherPhotoUrl,
-                    contentDescription = null,
-                    modifier = Modifier.padding(top = 16.dp).size(140.dp).clip(CircleShape),
+            // Scrolls on its own so a long summary can never squeeze the
+            // approve/decline row below it off the screen.
+            Column(
+                modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "Klick found someone",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = KlickColors.Accent,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 16.dp)
-                        .size(140.dp)
-                        .clip(CircleShape)
-                        .background(KlickColors.TextPrimary),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Person,
+
+                if (d.otherPhotoUrl != null) {
+                    AsyncImage(
+                        model = d.otherPhotoUrl,
                         contentDescription = null,
-                        tint = KlickColors.OnDark,
-                        modifier = Modifier.size(56.dp),
+                        modifier = Modifier.padding(top = 16.dp).size(140.dp).clip(CircleShape),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 16.dp)
+                            .size(140.dp)
+                            .clip(CircleShape)
+                            .background(KlickColors.TextPrimary),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = null,
+                            tint = KlickColors.OnDark,
+                            modifier = Modifier.size(56.dp),
+                        )
+                    }
+                }
+
+                // Real name, deliberately blurred — see file header.
+                Text(
+                    text = d.otherName,
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = KlickColors.TextPrimary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 14.dp).blur(14.dp),
+                )
+
+                if (!d.reason.isNullOrBlank()) {
+                    Text(
+                        text = d.reason,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = KlickColors.TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
+
+                if (!d.summary.isNullOrBlank()) {
+                    SectionLabel("Key things about them", topPadding = 26.dp)
+                    Text(
+                        text = d.summary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = KlickColors.TextPrimary,
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    )
+                }
+
+                if (d.interests.isNotEmpty()) {
+                    SectionLabel("Worth chatting about", topPadding = 20.dp)
+                    Text(
+                        text = d.interests.joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = KlickColors.TextPrimary,
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     )
                 }
             }
 
-            // Real name, deliberately blurred — see file header.
-            Text(
-                text = d.otherName,
-                style = MaterialTheme.typography.headlineLarge,
-                color = KlickColors.TextPrimary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 14.dp).blur(14.dp),
-            )
-
-            if (!d.reason.isNullOrBlank()) {
-                Text(
-                    text = d.reason,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = KlickColors.TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
-            }
-
-            if (!d.summary.isNullOrBlank()) {
-                SectionLabel("Key things about them", topPadding = 26.dp)
-                Text(
-                    text = d.summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = KlickColors.TextPrimary,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                )
-            }
-
-            if (d.interests.isNotEmpty()) {
-                SectionLabel("Worth chatting about", topPadding = 20.dp)
-                Text(
-                    text = d.interests.joinToString(" · "),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = KlickColors.TextPrimary,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                )
-            }
-
-            Box(modifier = Modifier.weight(1f))
 
             if (waitingOnOther) {
                 CircularProgressIndicator(

@@ -30,9 +30,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
@@ -100,6 +102,14 @@ class BleProximityService : Service() {
             BleSessionRepository.registerToken(myToken, twinId)
             startAdvertising(myToken)
             startScanning()
+            // Android quietly downgrades a long-running scan to opportunistic
+            // (after 5 min on Samsung One UI, 30 min on AOSP) and results stop
+            // arriving. Restarting before that deadline keeps detection live.
+            while (isActive) {
+                delay(SCAN_RESTART_MS)
+                stopScanning()
+                startScanning()
+            }
         }
     }
 
@@ -211,6 +221,10 @@ class BleProximityService : Service() {
 
         try {
             scn.startScan(listOf(filter), settings, scanCallback)
+        } catch (e: IllegalStateException) {
+            // Bluetooth was switched off since the scanner was obtained. The
+            // periodic restart picks scanning back up once it is on again.
+            Log.w(TAG, "Bluetooth is off; scan not started", e)
         } catch (e: SecurityException) {
             Log.e(TAG, "Missing BLUETOOTH_SCAN permission", e)
         }
@@ -219,6 +233,8 @@ class BleProximityService : Service() {
     private fun stopScanning() {
         try {
             scanner?.stopScan(scanCallback)
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "Bluetooth is off; nothing to stop", e)
         } catch (e: SecurityException) {
             Log.e(TAG, "Missing BLUETOOTH_SCAN permission while stopping", e)
         }
@@ -354,6 +370,9 @@ class BleProximityService : Service() {
 
         /** Re-report a token we keep seeing at most this often. */
         private const val SEEN_TTL_MS = 60_000L
+
+        /** Under Samsung's 5 min long-scan limit, the shortest we know of. */
+        private const val SCAN_RESTART_MS = 4 * 60_000L
 
         // Rate limit for the check-in write (NOT the radar, which wants every
         // reading). Static so the Home screen's "Reset demo" can clear it

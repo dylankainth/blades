@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Base64
 import android.util.Log
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -45,6 +46,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -61,6 +64,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.ContextCompat
 import com.facebook.CallbackManager
 import com.facebook.FacebookCallback
@@ -440,7 +444,32 @@ fun OnboardingScreen(
     }
 
     if (showContextDialog) {
-        ConnectDialog(onDismiss = { showContextDialog = false }, title = "Tell us about yourself") {
+        ConnectDialog(
+            onDismiss = { showContextDialog = false },
+            title = "Tell us about yourself",
+            // Pinned below the scrolling body, so Save stays on screen
+            // however much text is in the box.
+            actions = {
+                if (contextError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(contextError ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+                Button(
+                    onClick = { submitContextDump() },
+                    enabled = textDump.isNotBlank() && !isSubmittingContext,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = KlickColors.TextPrimary, contentColor = KlickColors.OnDark),
+                ) {
+                    if (isSubmittingContext) {
+                        CircularProgressIndicator(modifier = Modifier.height(20.dp), color = KlickColors.OnDark)
+                    } else {
+                        Text("Save", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            },
+        ) {
             Text(
                 text = "Paste anything — a bio, notes on what you're working on, what you're hoping to get out of this weekend.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -453,6 +482,10 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("e.g. I'm a CS student building a founder community...") },
                 minLines = 5,
+                // Without a cap the field grows with its text: a 10k+ character
+                // paste made it thousands of dp tall. Past 8 lines it scrolls
+                // internally instead.
+                maxLines = 8,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = KlickColors.TextPrimary,
@@ -504,24 +537,6 @@ fun OnboardingScreen(
                     },
                     style = MaterialTheme.typography.labelLarge,
                 )
-            }
-            if (contextError != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(contextError ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-            Button(
-                onClick = { submitContextDump() },
-                enabled = textDump.isNotBlank() && !isSubmittingContext,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = KlickColors.TextPrimary, contentColor = KlickColors.OnDark),
-            ) {
-                if (isSubmittingContext) {
-                    CircularProgressIndicator(modifier = Modifier.height(20.dp), color = KlickColors.OnDark)
-                } else {
-                    Text("Save", style = MaterialTheme.typography.labelLarge)
-                }
             }
         }
     }
@@ -761,25 +776,37 @@ private fun StepDots(current: Int, total: Int) {
 private fun ConnectDialog(
     onDismiss: () -> Unit,
     title: String,
+    actions: (@Composable ColumnScopeContent)? = null,
     content: @Composable ColumnScopeContent,
 ) {
     Dialog(onDismissRequest = onDismiss) {
+        // A Dialog is its own window: the activity's adjustResize and the
+        // Scaffold's imePadding don't reach it, and dialog themes default to
+        // adjustPan, which can leave the bottom of the card under the
+        // keyboard. Resize instead, so the card is laid out in the space
+        // above the keyboard.
+        val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+        @Suppress("DEPRECATION")
+        val adjustResize = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        SideEffect { dialogWindow?.setSoftInputMode(adjustResize) }
         Surface(
+            // Zero once the window has resized; only matters if the keyboard
+            // still ends up overlapping the dialog's window.
+            modifier = Modifier.imePadding(),
             shape = RoundedCornerShape(24.dp),
             color = KlickColors.CardSurface,
             border = BorderStroke(1.dp, KlickColors.Border),
         ) {
-            // A Dialog's content otherwise grows unbounded — with a long
-            // text dump typed into the context box, that pushed the
-            // Save/Connect button off the bottom of the screen entirely,
-            // with no way to reach it. Capping the height and scrolling
-            // within it keeps the button reachable no matter how much text
-            // is in the box.
+            // The card is capped at 560dp (less while the keyboard is up) and
+            // only the body scrolls: the title and `actions` stay pinned, so
+            // Save is on screen no matter how much text is in the box. An
+            // earlier fix capped and scrolled the whole card, but the text
+            // field inside still grew without bound, which left Save
+            // thousands of dp of scrolling below a long paste.
             Column(
                 modifier = Modifier
                     .padding(20.dp)
-                    .heightIn(max = 560.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .heightIn(max = 560.dp),
             ) {
                 Text(
                     text = title,
@@ -787,7 +814,14 @@ private fun ConnectDialog(
                     color = KlickColors.TextPrimary,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                content()
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    content()
+                }
+                actions?.invoke(this)
             }
         }
     }

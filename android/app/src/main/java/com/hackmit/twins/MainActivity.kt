@@ -73,9 +73,10 @@ private sealed class PendingNav {
 
 class MainActivity : ComponentActivity() {
 
-    // Plain Activity field holding the most recent notification tap; read
-    // once into Compose state inside setContent (see onCreate below).
-    private var latestPendingNav: PendingNav? = null
+    // Most recent notification tap. Snapshot state on the Activity (not
+    // remembered inside setContent) so onNewIntent can drive navigation while
+    // the UI is already composed.
+    private var pendingNav by mutableStateOf<PendingNav?>(null)
 
     private val bluetoothPermissions: Array<String>
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -108,18 +109,22 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        latestPendingNav = extractPendingNav(intent)
+        // Only a fresh launch: a recreated Activity still holds the old intent
+        // and would reopen a teaser the user has already dealt with.
+        if (savedInstanceState == null) pendingNav = extractPendingNav(intent)
 
         setContent {
             DigitalTwinsTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
-                    var pendingNav by remember { mutableStateOf(latestPendingNav) }
-
                     LaunchedEffect(pendingNav) {
                         when (pendingNav) {
-                            is PendingNav.Teaser -> navController.navigate(Routes.MATCH_TEASER)
-                            is PendingNav.Radar -> navController.navigate(Routes.RADAR)
+                            // singleTop: screens that set pendingNav also navigate
+                            // themselves, and must not end up stacked twice.
+                            is PendingNav.Teaser ->
+                                navController.navigate(Routes.MATCH_TEASER) { launchSingleTop = true }
+                            is PendingNav.Radar ->
+                                navController.navigate(Routes.RADAR) { launchSingleTop = true }
                             null -> {}
                         }
                     }
@@ -139,14 +144,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        extractPendingNav(intent)?.let { latestPendingNav = it }
-        // Note: with singleTop launch mode + Compose state living in
-        // setContent's recomposition scope, a fresh notification tap while
-        // the Activity is already open re-enters here; wiring this into the
-        // already-composed state (rather than just the field above) would
-        // need a shared state holder/ViewModel — left as a TODO since for
-        // the hackathon demo the app is typically relaunched fresh from the
-        // notification tap.
+        extractPendingNav(intent)?.let { pendingNav = it }
     }
 
     /** Called once we actually have a signed-in twinId (fresh sign-in/up,
@@ -201,6 +199,31 @@ class MainActivity : ComponentActivity() {
                     otherPhotoUrl = intent.getStringExtra(EXTRA_MATCHED_PHOTO_URL),
                 )
             }
+            else -> extractFromPushData(intent)
+        }
+    }
+
+    /**
+     * While the app is backgrounded FCM displays the push itself, and tapping
+     * it launches us with the plain launcher action plus the message's data
+     * payload as string extras (keys as sent by notifyMatch.ts and
+     * submitMatchApproval.ts) instead of the intent TwinMessagingService builds.
+     */
+    private fun extractFromPushData(intent: Intent?): PendingNav? {
+        val extras = intent?.extras ?: return null
+        return when (extras.getString(PUSH_KEY_ACTION)) {
+            PUSH_ACTION_OPEN_TEASER ->
+                extras.getString(EXTRA_MATCH_ID)?.takeIf { it.isNotBlank() }?.let { PendingNav.Teaser(it) }
+            PUSH_ACTION_OPEN_RADAR -> {
+                val otherTwinId = extras.getString(PUSH_KEY_OTHER_TWIN_ID)?.takeIf { it.isNotBlank() }
+                    ?: return null
+                PendingNav.Radar(
+                    otherTwinId = otherTwinId,
+                    otherName = extras.getString(PUSH_KEY_OTHER_NAME)?.takeIf { it.isNotBlank() }
+                        ?: "Someone nearby",
+                    otherPhotoUrl = extras.getString(PUSH_KEY_OTHER_PHOTO_URL)?.takeIf { it.isNotBlank() },
+                )
+            }
             else -> null
         }
     }
@@ -212,6 +235,13 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_MATCHED_TWIN_ID = "matchedTwinId"
         const val EXTRA_MATCHED_NAME = "matchedName"
         const val EXTRA_MATCHED_PHOTO_URL = "matchedPhotoUrl"
+
+        private const val PUSH_KEY_ACTION = "action"
+        private const val PUSH_ACTION_OPEN_TEASER = "open_teaser"
+        private const val PUSH_ACTION_OPEN_RADAR = "open_radar"
+        private const val PUSH_KEY_OTHER_TWIN_ID = "otherTwinId"
+        private const val PUSH_KEY_OTHER_NAME = "otherName"
+        private const val PUSH_KEY_OTHER_PHOTO_URL = "otherPhotoUrl"
     }
 }
 
@@ -378,7 +408,13 @@ private fun AppNavHost(
             NegotiationDetailScreen(detail = negotiationDetail)
         }
         composable(Routes.MATCH_TEASER) {
-            val teaser = pendingNav as? PendingNav.Teaser ?: return@composable
+            val teaser = pendingNav as? PendingNav.Teaser
+            if (teaser == null) {
+                // Restored after the Activity was recreated: the route came back
+                // but its arguments did not. Go Home rather than show a blank screen.
+                LaunchedEffect(Unit) { navController.popBackStack(Routes.HOME, inclusive = false) }
+                return@composable
+            }
             val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
             MatchTeaserScreen(
                 matchId = teaser.matchId,
@@ -396,11 +432,21 @@ private fun AppNavHost(
             )
         }
         composable(Routes.RADAR) {
-            val radar = pendingNav as? PendingNav.Radar ?: return@composable
+            val radar = pendingNav as? PendingNav.Radar
+            if (radar == null) {
+                LaunchedEffect(Unit) { navController.popBackStack(Routes.HOME, inclusive = false) }
+                return@composable
+            }
+            val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
             RadarScreen(
+                myTwinId = twinId,
                 otherTwinId = radar.otherTwinId,
                 otherName = radar.otherName,
                 otherPhotoUrl = radar.otherPhotoUrl,
+                onMet = {
+                    onNavHandled()
+                    navController.popBackStack(Routes.HOME, inclusive = false)
+                },
             )
         }
     }

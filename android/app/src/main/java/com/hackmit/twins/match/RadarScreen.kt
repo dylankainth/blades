@@ -19,19 +19,31 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.hackmit.twins.ble.BleProximityService
 import com.hackmit.twins.ui.theme.KlickColors
+import kotlinx.coroutines.delay
+
+/** How long the "you met" confirmation stays up before the radar closes itself. */
+private const val MET_DISMISS_MS = 3_500L
 
 /**
  * Both people approved — real identity is fully revealed here (unlike
@@ -41,18 +53,43 @@ import com.hackmit.twins.ui.theme.KlickColors
  *
  * Signal strength is a rough, noisy stand-in for distance (no UWB on these
  * phones) — good for "warmer/colder" feedback, not precise range/direction.
+ *
+ * Once the pair shakes their badges the backend sets matches/{id}.metAt; the
+ * radar then confirms it and closes itself via [onMet], since there is
+ * nobody left to find.
  */
 @Composable
 fun RadarScreen(
+    myTwinId: String,
     otherTwinId: String,
     otherName: String,
     otherPhotoUrl: String?,
+    onMet: () -> Unit,
 ) {
+    var met by remember { mutableStateOf(false) }
+    DisposableEffect(myTwinId, otherTwinId) {
+        // Same id the backend derives in negotiateTwins.ts: both twin ids, sorted.
+        val matchId = listOf(myTwinId, otherTwinId).sorted().joinToString("_")
+        val registration = MatchDetailRepository.listen(matchId, myTwinId) { detail ->
+            if (detail?.met == true) met = true
+        }
+        onDispose { registration.remove() }
+    }
+
+    val haptics = LocalHapticFeedback.current
+    val currentOnMet by rememberUpdatedState(onMet)
+    LaunchedEffect(met) {
+        if (!met) return@LaunchedEffect
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        delay(MET_DISMISS_MS)
+        currentOnMet()
+    }
+
     val rssiByTwin by BleProximityService.nearbyRssi.collectAsState()
     val rssi = rssiByTwin[otherTwinId]
 
     // -100 dBm (no signal) -> 0f, -40 dBm (very close) -> 1f.
-    val targetCloseness = rssi?.let { ((it + 100f) / 60f).coerceIn(0f, 1f) } ?: 0f
+    val targetCloseness = if (met) 1f else rssi?.let { ((it + 100f) / 60f).coerceIn(0f, 1f) } ?: 0f
     val closeness by animateFloatAsState(
         targetValue = targetCloseness,
         animationSpec = tween(600),
@@ -60,6 +97,7 @@ fun RadarScreen(
     )
 
     val statusText = when {
+        met -> "You met $otherName"
         rssi == null -> "Searching for them..."
         closeness > 0.85f -> "Very close — look around!"
         closeness > 0.55f -> "Getting warmer"
@@ -108,7 +146,11 @@ fun RadarScreen(
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = "Signal strength only — not exact distance or direction.",
+                text = if (met) {
+                    "Marked as met. Closing this match."
+                } else {
+                    "Signal strength only — not exact distance or direction."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = KlickColors.TextSecondary,
                 textAlign = TextAlign.Center,

@@ -2,6 +2,7 @@ package com.hackmit.twins.context
 
 import android.net.Uri
 import android.util.Base64
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,6 +44,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,11 +55,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogWindowProvider
 import com.facebook.CallbackManager
 import com.facebook.FacebookCallback
 import com.facebook.FacebookException
@@ -416,27 +421,42 @@ private fun ConnectStatusCircle(
 }
 
 @Composable
-private fun ConnectDialogShell(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+private fun ConnectDialogShell(
+    title: String,
+    onDismiss: () -> Unit,
+    actions: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     Dialog(onDismissRequest = onDismiss) {
+        // Same shell as OnboardingScreen's ConnectDialog, see the comments
+        // there: resize the dialog's own window for the keyboard (dialog
+        // themes default to adjustPan), and pin the title and `actions` so
+        // only the body scrolls.
+        val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+        @Suppress("DEPRECATION")
+        val adjustResize = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        SideEffect { dialogWindow?.setSoftInputMode(adjustResize) }
         Surface(
+            modifier = Modifier.imePadding(),
             shape = RoundedCornerShape(24.dp),
             color = KlickColors.CardSurface,
             border = BorderStroke(1.dp, KlickColors.Border),
         ) {
-            // A Dialog's content otherwise grows unbounded — a long context
-            // text dump pushed the Save/Connect button off the bottom of
-            // the screen with no way to reach it. Capping the height and
-            // scrolling within it keeps the button reachable regardless of
-            // how much text is in the box.
             Column(
                 modifier = Modifier
                     .padding(20.dp)
-                    .heightIn(max = 560.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .heightIn(max = 560.dp),
             ) {
                 Text(title, style = MaterialTheme.typography.titleLarge, color = KlickColors.TextPrimary)
                 Spacer(modifier = Modifier.height(12.dp))
-                content()
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    content()
+                }
+                actions?.invoke()
             }
         }
     }
@@ -454,7 +474,50 @@ private fun ContextConnectDialog(twinId: String, onDismiss: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    ConnectDialogShell(title = "Tell us about yourself", onDismiss = onDismiss) {
+    ConnectDialogShell(
+        title = "Tell us about yourself",
+        onDismiss = onDismiss,
+        // Pinned below the scrolling body, so Save stays on screen
+        // however much text is in the box.
+        actions = {
+            if (error != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(error ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Button(
+                onClick = {
+                    val dump = textDump.trim()
+                    if (dump.isEmpty() || isSubmitting) return@Button
+                    isSubmitting = true
+                    error = null
+                    scope.launch {
+                        try {
+                            Firebase.functions
+                                .getHttpsCallable("submitContext")
+                                .call(hashMapOf("twinId" to twinId, "textDump" to dump))
+                                .await()
+                            onDismiss()
+                        } catch (e: Exception) {
+                            error = "Couldn't save that just now — mind trying again? (${e.message})"
+                        } finally {
+                            isSubmitting = false
+                        }
+                    }
+                },
+                enabled = textDump.isNotBlank() && !isSubmitting,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = KlickColors.TextPrimary, contentColor = KlickColors.OnDark),
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(modifier = Modifier.height(20.dp), color = KlickColors.OnDark)
+                } else {
+                    Text("Save", style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        },
+    ) {
         Text(
             text = "Paste anything — a bio, notes on what you're working on, what you're hoping to get out of this weekend.",
             style = MaterialTheme.typography.bodyMedium,
@@ -467,48 +530,15 @@ private fun ContextConnectDialog(twinId: String, onDismiss: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("e.g. I'm a CS student building a founder community...") },
             minLines = 5,
+            // Scrolls internally past 8 lines rather than growing with a
+            // long paste.
+            maxLines = 8,
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = KlickColors.TextPrimary,
                 unfocusedBorderColor = KlickColors.Border,
             ),
         )
-        if (error != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(error ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        }
-        Spacer(modifier = Modifier.height(14.dp))
-        Button(
-            onClick = {
-                val dump = textDump.trim()
-                if (dump.isEmpty() || isSubmitting) return@Button
-                isSubmitting = true
-                error = null
-                scope.launch {
-                    try {
-                        Firebase.functions
-                            .getHttpsCallable("submitContext")
-                            .call(hashMapOf("twinId" to twinId, "textDump" to dump))
-                            .await()
-                        onDismiss()
-                    } catch (e: Exception) {
-                        error = "Couldn't save that just now — mind trying again? (${e.message})"
-                    } finally {
-                        isSubmitting = false
-                    }
-                }
-            },
-            enabled = textDump.isNotBlank() && !isSubmitting,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = KlickColors.TextPrimary, contentColor = KlickColors.OnDark),
-        ) {
-            if (isSubmitting) {
-                CircularProgressIndicator(modifier = Modifier.height(20.dp), color = KlickColors.OnDark)
-            } else {
-                Text("Save", style = MaterialTheme.typography.labelLarge)
-            }
-        }
     }
 }
 

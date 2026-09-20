@@ -26,6 +26,8 @@ data class MatchLiveDetail(
     val revealStatus: String,
     val myApproval: String?,
     val otherApproval: String?,
+    /** True once the pair has shaken their badges (matches/{id}.metAt is set). */
+    val met: Boolean,
 )
 
 object MatchDetailRepository {
@@ -71,6 +73,7 @@ object MatchDetailRepository {
                         revealStatus = doc.getString("revealStatus") ?: "pending",
                         myApproval = approvals[myTwinId],
                         otherApproval = approvals[otherTwinId],
+                        met = doc.get("metAt") != null,
                     ),
                 )
             }
