@@ -59,6 +59,13 @@ export type MatchStatus =
   | "confirmed"
   | "dismissed";
 
+/**
+ * Human approval, layered on top of the AI's "confirmed" — a second,
+ * explicit consent gate before either person's real identity is revealed
+ * to the other or the BLE radar unlocks. See submitMatchApproval.ts.
+ */
+export type RevealStatus = "pending" | "revealed" | "cancelled";
+
 /** One turn of the twin-to-twin negotiation transcript. */
 export interface NegotiationTurn {
   speakerTwinId: string;
@@ -85,6 +92,39 @@ export interface MatchDoc {
    */
   names: Record<string, string>;
   photoUrls: Record<string, string | null>;
+  /**
+   * Denormalized "key facts" for the Match Teaser screen — same reasoning
+   * as names/photoUrls above: twins/{twinId} is owner-only, so anything
+   * the OTHER person's client needs to render has to be snapshotted here
+   * at negotiation time. Only written when the match is confirmed (a
+   * dismissed pairing has no teaser screen to feed).
+   */
+  summaries?: Record<string, string | null>;
+  interestsByTwin?: Record<string, string[]>;
+  /** Per-twin human approval of the reveal — see RevealStatus. */
+  humanApprovals?: Record<string, "approved" | "declined">;
+  revealStatus?: RevealStatus;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+/**
+ * judge_feed/{matchId} — the public-safe copy of a negotiation, readable by
+ * any signed-in user (unlike matches/{matchId}, which is participant-only).
+ * For a confirmed match this mirrors the real data — that's the "wow"
+ * moment judges should see. For a dismissed one it's deliberately just the
+ * outcome: no names, no photos, no reason text, no transcript, since the
+ * reason/transcript tend to mention real names in the model's own words —
+ * a simple redacted names map wouldn't catch that. See negotiateTwins.ts.
+ */
+export interface JudgeFeedDoc {
+  matchId: string;
+  status: MatchStatus;
+  score?: number | null;
+  reason?: string | null;
+  transcript?: NegotiationTurn[];
+  names?: Record<string, string>;
+  photoUrls?: Record<string, string | null>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

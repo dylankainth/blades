@@ -8,28 +8,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 
 /**
- * Kindred's palette is deliberately one light, warm look everywhere — the
+ * Klick's palette is deliberately one light, warm look everywhere — the
  * design mockup (design/Kindred App.dc.html) has no dark variant, so this
  * theme doesn't branch on isSystemInDarkTheme(); it just applies the
  * mockup's look consistently.
  */
-private val KindredColorScheme = lightColorScheme(
-    primary = KindredColors.TextPrimary,
-    onPrimary = KindredColors.OnDark,
-    secondary = KindredColors.Accent,
-    onSecondary = KindredColors.OnDark,
-    background = KindredColors.PageBackground,
-    onBackground = KindredColors.TextPrimary,
-    surface = KindredColors.CardSurface,
-    onSurface = KindredColors.TextPrimary,
-    surfaceVariant = KindredColors.InsetSurface,
-    onSurfaceVariant = KindredColors.TextSecondary,
-    outline = KindredColors.Border,
-    outlineVariant = KindredColors.Border,
-    error = KindredColors.Accent,
+private val KlickColorScheme = lightColorScheme(
+    primary = KlickColors.TextPrimary,
+    onPrimary = KlickColors.OnDark,
+    secondary = KlickColors.Accent,
+    onSecondary = KlickColors.OnDark,
+    background = KlickColors.PageBackground,
+    onBackground = KlickColors.TextPrimary,
+    surface = KlickColors.CardSurface,
+    onSurface = KlickColors.TextPrimary,
+    surfaceVariant = KlickColors.InsetSurface,
+    onSurfaceVariant = KlickColors.TextSecondary,
+    outline = KlickColors.Border,
+    outlineVariant = KlickColors.Border,
+    error = KlickColors.Accent,
 )
 
-private val KindredShapes = Shapes(
+private val KlickShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp),
@@ -40,9 +40,9 @@ private val KindredShapes = Shapes(
 @Composable
 fun DigitalTwinsTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = KindredColorScheme,
-        typography = KindredTypography,
-        shapes = KindredShapes,
+        colorScheme = KlickColorScheme,
+        typography = KlickTypography,
+        shapes = KlickShapes,
         content = content,
     )
 }

@@ -34,7 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.launch
 
 /**
@@ -76,12 +76,12 @@ internal fun AuthFormScreen(
     }
 
     Scaffold(
-        containerColor = KindredColors.PageBackground,
+        containerColor = KlickColors.PageBackground,
         topBar = {
             TopAppBar(
                 title = { Text(title) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KindredColors.PageBackground,
+                    containerColor = KlickColors.PageBackground,
                 ),
             )
         },
@@ -94,10 +94,10 @@ internal fun AuthFormScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             val fieldColors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = KindredColors.TextPrimary,
-                unfocusedBorderColor = KindredColors.Border,
-                focusedContainerColor = KindredColors.CardSurface,
-                unfocusedContainerColor = KindredColors.CardSurface,
+                focusedBorderColor = KlickColors.TextPrimary,
+                unfocusedBorderColor = KlickColors.Border,
+                focusedContainerColor = KlickColors.CardSurface,
+                unfocusedContainerColor = KlickColors.CardSurface,
             )
 
             OutlinedTextField(
@@ -126,7 +126,7 @@ internal fun AuthFormScreen(
             errorText?.let {
                 Text(
                     text = it,
-                    color = KindredColors.Accent,
+                    color = KlickColors.Accent,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 10.dp),
                 )
@@ -138,15 +138,15 @@ internal fun AuthFormScreen(
                 shape = RoundedCornerShape(16.dp),
                 contentPadding = PaddingValues(vertical = 18.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = KindredColors.TextPrimary,
-                    contentColor = KindredColors.OnDark,
+                    containerColor = KlickColors.TextPrimary,
+                    contentColor = KlickColors.OnDark,
                 ),
                 modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(
                         modifier = Modifier.height(18.dp),
-                        color = KindredColors.OnDark,
+                        color = KlickColors.OnDark,
                     )
                 } else {
                     Text(submitLabel, style = MaterialTheme.typography.titleMedium)
@@ -159,7 +159,7 @@ internal fun AuthFormScreen(
             ) {
                 Text(
                     text = "or",
-                    color = KindredColors.TextSecondary,
+                    color = KlickColors.TextSecondary,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -168,9 +168,9 @@ internal fun AuthFormScreen(
                 onClick = onGoogleClick,
                 shape = RoundedCornerShape(16.dp),
                 contentPadding = PaddingValues(vertical = 18.dp),
-                border = BorderStroke(1.dp, KindredColors.Border),
+                border = BorderStroke(1.dp, KlickColors.Border),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = KindredColors.TextPrimary,
+                    contentColor = KlickColors.TextPrimary,
                 ),
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -183,7 +183,7 @@ internal fun AuthFormScreen(
             ) {
                 Text(
                     text = switchPrompt,
-                    color = KindredColors.TextSecondary,
+                    color = KlickColors.TextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -193,7 +193,7 @@ internal fun AuthFormScreen(
             ) {
                 Text(
                     text = switchActionLabel,
-                    color = KindredColors.TextPrimary,
+                    color = KlickColors.TextPrimary,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(4.dp).clickable(onClick = onSwitch),
                 )

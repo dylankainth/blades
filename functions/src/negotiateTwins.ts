@@ -24,7 +24,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { db } from "./lib/admin";
 import { META_MODEL_API_KEY } from "./lib/secrets";
 import { callMetaModel, type MetaModelMessage } from "./lib/metaModel";
-import type { MatchDoc, NegotiationTurn, TwinProfile } from "./types";
+import type { JudgeFeedDoc, MatchDoc, NegotiationTurn, TwinProfile } from "./types";
 
 const NEGOTIATION_ROUNDS = 2; // each twin speaks this many times
 
@@ -171,11 +171,55 @@ export async function runNegotiation(
       [twinIdA]: twinA.photoUrl ?? null,
       [twinIdB]: twinB.photoUrl ?? null,
     },
+    // Only meaningful (and only fed to the Match Teaser screen) once
+    // there's an actual match to show a teaser for.
+    ...(isMatch
+      ? {
+          summaries: {
+            [twinIdA]: twinA.summary ?? null,
+            [twinIdB]: twinB.summary ?? null,
+          },
+          interestsByTwin: {
+            [twinIdA]: twinA.interests ?? [],
+            [twinIdB]: twinB.interests ?? [],
+          },
+          humanApprovals: {},
+          revealStatus: "pending",
+        }
+      : {}),
     updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
   };
 
   await matchRef.set(
     { ...matchDoc, createdAt: FieldValue.serverTimestamp() },
+    { merge: true },
+  );
+
+  // Public-safe copy for the judge dashboard (any signed-in user can read
+  // judge_feed/, unlike matches/ which is participant-only — see
+  // firestore.rules). Full data for a confirmed match; outcome-only for a
+  // dismissed one, since the reason/transcript tend to name-drop real
+  // people in the model's own words.
+  const judgeFeedDoc: JudgeFeedDoc = isMatch
+    ? {
+        matchId,
+        status: "confirmed",
+        score: convergence.score,
+        reason: matchDoc.reason ?? null,
+        transcript,
+        names: matchDoc.names,
+        photoUrls: matchDoc.photoUrls,
+        updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
+      }
+    : {
+        matchId,
+        status: "dismissed",
+        score: convergence.score,
+        updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
+      };
+
+  await db.collection("judge_feed").doc(matchId).set(
+    { ...judgeFeedDoc, createdAt: FieldValue.serverTimestamp() },
     { merge: true },
   );
 

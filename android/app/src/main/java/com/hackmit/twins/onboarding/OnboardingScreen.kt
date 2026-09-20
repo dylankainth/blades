@@ -40,7 +40,7 @@ import com.facebook.login.LoginResult
 import com.facebook.login.widget.LoginButton
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
-import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -170,12 +170,12 @@ fun OnboardingScreen(
     }
 
     Scaffold(
-        containerColor = KindredColors.PageBackground,
+        containerColor = KlickColors.PageBackground,
         topBar = {
             TopAppBar(
                 title = { Text("Build your twin") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KindredColors.PageBackground,
+                    containerColor = KlickColors.PageBackground,
                 ),
             )
         },
@@ -191,14 +191,14 @@ fun OnboardingScreen(
             Text(
                 text = "Tell us about yourself",
                 style = MaterialTheme.typography.titleMedium,
-                color = KindredColors.TextPrimary,
+                color = KlickColors.TextPrimary,
             )
             Text(
                 text = "Paste anything — a bio, notes on what you're working on, what " +
                     "you're hoping to get out of this weekend. Your twin uses this to " +
                     "find people worth meeting.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = KindredColors.TextSecondary,
+                color = KlickColors.TextSecondary,
             )
 
             OutlinedTextField(
@@ -209,10 +209,10 @@ fun OnboardingScreen(
                 minLines = 6,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = KindredColors.TextPrimary,
-                    unfocusedBorderColor = KindredColors.Border,
-                    focusedContainerColor = KindredColors.CardSurface,
-                    unfocusedContainerColor = KindredColors.CardSurface,
+                    focusedBorderColor = KlickColors.TextPrimary,
+                    unfocusedBorderColor = KlickColors.Border,
+                    focusedContainerColor = KlickColors.CardSurface,
+                    unfocusedContainerColor = KlickColors.CardSurface,
                 ),
             )
 
@@ -223,7 +223,7 @@ fun OnboardingScreen(
             Text(
                 text = "Instagram handle (optional)",
                 style = MaterialTheme.typography.bodyMedium,
-                color = KindredColors.TextPrimary,
+                color = KlickColors.TextPrimary,
             )
             OutlinedTextField(
                 value = instagramHandle,
@@ -233,10 +233,10 @@ fun OnboardingScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = KindredColors.TextPrimary,
-                    unfocusedBorderColor = KindredColors.Border,
-                    focusedContainerColor = KindredColors.CardSurface,
-                    unfocusedContainerColor = KindredColors.CardSurface,
+                    focusedBorderColor = KlickColors.TextPrimary,
+                    unfocusedBorderColor = KlickColors.Border,
+                    focusedContainerColor = KlickColors.CardSurface,
+                    unfocusedContainerColor = KlickColors.CardSurface,
                 ),
             )
 
@@ -254,8 +254,8 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = KindredColors.TextPrimary,
-                    contentColor = KindredColors.OnDark,
+                    containerColor = KlickColors.TextPrimary,
+                    contentColor = KlickColors.OnDark,
                 ),
             ) {
                 if (isSubmitting) {
@@ -271,15 +271,15 @@ fun OnboardingScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = KindredColors.CardSurface),
-                border = BorderStroke(1.dp, KindredColors.Border),
+                colors = CardDefaults.cardColors(containerColor = KlickColors.CardSurface),
+                border = BorderStroke(1.dp, KlickColors.Border),
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         text = fbName?.let { "Signed in as $it" }
                             ?: "Optional: add your name + photo via Facebook",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = KindredColors.TextSecondary,
+                        color = KlickColors.TextSecondary,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     AndroidView(
@@ -318,21 +318,21 @@ fun OnboardingScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = KindredColors.CardSurface),
-                border = BorderStroke(1.dp, KindredColors.Border),
+                colors = CardDefaults.cardColors(containerColor = KlickColors.CardSurface),
+                border = BorderStroke(1.dp, KlickColors.Border),
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         text = "Beta: connect Facebook posts",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = KindredColors.TextPrimary,
+                        color = KlickColors.TextPrimary,
                     )
                     Text(
                         text = "Only works on a small set of connected demo accounts for " +
                             "now — everyone else, no worries, the text dump above is what " +
                             "your twin uses.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = KindredColors.TextSecondary,
+                        color = KlickColors.TextSecondary,
                     )
                     Spacer(modifier = Modifier.height(10.dp))
 
@@ -377,7 +377,7 @@ fun OnboardingScreen(
                         Text(
                             text = socialStatusMessage ?: "",
                             style = MaterialTheme.typography.bodySmall,
-                            color = KindredColors.TextSecondary,
+                            color = KlickColors.TextSecondary,
                         )
                     }
                 }

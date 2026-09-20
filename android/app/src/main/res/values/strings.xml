@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Kindred</string>
+    <string name="app_name">Klick</string>
 
     <string name="match_notification_channel_id">twin_matches</string>
     <string name="match_notification_channel_name">Twin matches</string>

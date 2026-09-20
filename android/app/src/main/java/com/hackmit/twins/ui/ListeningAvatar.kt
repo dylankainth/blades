@@ -23,7 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
-import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.cos
@@ -126,7 +126,7 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
             val alpha = (0.45f * (1f - progress)).coerceIn(0f, 0.45f)
             val ringSize = s * scale
             drawRoundRect(
-                color = KindredColors.TextPrimary.copy(alpha = alpha),
+                color = KlickColors.TextPrimary.copy(alpha = alpha),
                 topLeft = Offset(center.x - ringSize / 2, center.y - ringSize / 2),
                 size = Size(ringSize, ringSize),
                 cornerRadius = CornerRadius(ringSize * 0.3f),
@@ -136,9 +136,9 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
 
         // Orbiting dots — two neutral, one accent, matching the mockup.
         val orbitSpecs = listOf(
-            Triple(orbit0, s * 1.05f, KindredColors.TextTertiary),
-            Triple(orbit1, s * 1.19f, KindredColors.TextTertiary),
-            Triple(orbit2, s * 1.33f, KindredColors.Accent),
+            Triple(orbit0, s * 1.05f, KlickColors.TextTertiary),
+            Triple(orbit1, s * 1.19f, KlickColors.TextTertiary),
+            Triple(orbit2, s * 1.33f, KlickColors.Accent),
         )
         orbitSpecs.forEach { (angleDeg, radius, color) ->
             val angleRad = Math.toRadians(angleDeg.toDouble())
@@ -151,7 +151,7 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
 
         // Face — rounded square, near-black.
         drawRoundRect(
-            color = KindredColors.TextPrimary,
+            color = KlickColors.TextPrimary,
             size = this.size,
             cornerRadius = cornerRadius,
         )
@@ -166,7 +166,7 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
         listOf(-1, 1).forEach { side ->
             val eyeX = center.x + side * eyeGap / 2 - eyeW / 2 + eyeOffsetX.value * eyeShift
             drawRoundRect(
-                color = KindredColors.OnDark,
+                color = KlickColors.OnDark,
                 topLeft = Offset(eyeX, eyeY + eyeOffsetY.value * eyeShift),
                 size = Size(eyeW, eyeH * blinkScale),
                 cornerRadius = CornerRadius(eyeW / 2),
@@ -177,7 +177,7 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
         val mouthW = s * mouthWidthFraction.value
         val mouthH = s * 0.045f
         drawRoundRect(
-            color = KindredColors.OnDark,
+            color = KlickColors.OnDark,
             topLeft = Offset(center.x - mouthW / 2, center.y + s * 0.14f),
             size = Size(mouthW, mouthH),
             cornerRadius = CornerRadius(mouthH / 2),

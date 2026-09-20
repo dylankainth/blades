@@ -6,3 +6,4 @@ export { importSocialContext } from "./importSocialContext";
 export { onCheckin } from "./onCheckin";
 export { negotiateTwins } from "./negotiateTwins";
 export { notifyMatch } from "./notifyMatch";
+export { submitMatchApproval } from "./submitMatchApproval";

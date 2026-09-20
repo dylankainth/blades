@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
  * amber accent reserved for "strong match" / standout moments. Values
  * are sRGB approximations of the mockup's oklch() colors.
  */
-object KindredColors {
+object KlickColors {
     val PageBackground = Color(0xFFEEECE9)
     val CardSurface = Color(0xFFFCFBFA)
     val InsetSurface = Color(0xFFF3F1EE) // e.g. oklch(96%) insight chips

@@ -3,13 +3,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // twins/{twinId} — a twin's own profile. Readable by any signed-in
-    // device (needed to show a matched person's name/photo client-side),
-    // but only the owning device (Firebase Auth anonymous uid == twinId)
-    // may write it.
+    // twins/{twinId} — a twin's own profile. Private to the owning device.
+    // Other twins' name/photo reach the client only via the denormalized
+    // copy negotiateTwins.ts snapshots into matches/{matchId}.names and
+    // .photoUrls at negotiation time — the app never reads another twin's
+    // profile directly, so there's no reason this needs to be world-
+    // readable to every signed-in user.
     match /twins/{twinId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == twinId;
+      allow read, write: if request.auth != null && request.auth.uid == twinId;
     }
 
     // context_submissions/{twinId} — audit trail of what a twin's context
@@ -45,13 +46,27 @@ service cloud.firestore {
     }
 
     // matches/{matchId} — negotiation transcript + outcome for a pair of
-    // twins. Readable by any signed-in user (this intentionally includes
-    // the judge-facing dashboard, which signs in anonymously — see
-    // judge-dashboard/index.html — and shows confirmed matches AND
-    // dismissed non-matches, which is the point of that screen). All
-    // writes happen server-side (negotiateTwins / onCheckin via the Admin
-    // SDK, which bypasses rules) — clients never write matches directly.
+    // twins, including the loser's real name/photo for a dismissed match.
+    // Readable ONLY by the two twins involved — a real name someone's
+    // twin evaluated and passed on should never be visible to a third
+    // party. The judge dashboard does NOT read this collection; it reads
+    // judge_feed/ below, a deliberately redacted copy. All writes happen
+    // server-side (negotiateTwins / onCheckin via the Admin SDK, which
+    // bypasses rules) — clients never write matches directly.
     match /matches/{matchId} {
+      allow read: if request.auth != null &&
+        request.auth.uid in resource.data.twinIds;
+      allow write: if false;
+    }
+
+    // judge_feed/{matchId} — the public-safe copy of a negotiation for the
+    // judge-facing dashboard (which signs in anonymously — see
+    // judge-dashboard/index.html). Readable by any signed-in user, unlike
+    // matches/ above: negotiateTwins.ts only ever writes full real data
+    // here for a CONFIRMED match; a dismissed one gets just the outcome
+    // (status + score), no names/photos/reason/transcript, since those
+    // tend to name-drop real people in the model's own words.
+    match /judge_feed/{matchId} {
       allow read: if request.auth != null;
       allow write: if false;
     }

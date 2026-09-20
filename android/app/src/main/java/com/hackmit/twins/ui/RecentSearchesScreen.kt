@@ -45,7 +45,7 @@ private val Surface = Color(0xFF161616)
 private val Border = Color(0xFF2E2E2E)
 private val TextPrimary = Color.White
 private val TextSecondary = Color(0xFFA0A0A0)
-private val Accent = Color(0xFFE0985C) // same amber family as KindredColors.Accent, brightened for a dark bg
+private val Accent = Color(0xFFE0985C) // same amber family as KlickColors.Accent, brightened for a dark bg
 
 @Composable
 fun RecentSearchesScreen(
@@ -106,6 +106,21 @@ fun RecentSearchesScreen(
 @Composable
 private fun RecentSearchRow(item: MatchFeedItem, onClick: () -> Unit) {
     val isConfirmed = item.status == "confirmed"
+    val isRevealed = item.revealStatus == "revealed"
+    // Deliberate: even though the owner's own device can technically read
+    // the real name/photo for a dismissed pairing (see MatchFeedRepository
+    // — matches/{matchId} is participant-readable), we don't surface it as
+    // a headline here. A "Someone nearby" you weren't matched with doesn't
+    // need to be identified, even to you. A confirmed match still keeps the
+    // name hidden until both people have passed the human-approval gate on
+    // the Match Teaser screen (revealStatus == "revealed") — otherwise this
+    // list would leak the identity the Teaser screen deliberately blurs.
+    val displayName = when {
+        isRevealed -> item.otherName
+        isConfirmed -> "Someone new"
+        else -> "Someone nearby"
+    }
+    val displayPhotoUrl = if (isRevealed) item.otherPhotoUrl else null
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -117,9 +132,9 @@ private fun RecentSearchRow(item: MatchFeedItem, onClick: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (item.otherPhotoUrl != null) {
+            if (displayPhotoUrl != null) {
                 AsyncImage(
-                    model = item.otherPhotoUrl,
+                    model = displayPhotoUrl,
                     contentDescription = null,
                     modifier = Modifier.size(40.dp).clip(CircleShape),
                 )
@@ -129,7 +144,7 @@ private fun RecentSearchRow(item: MatchFeedItem, onClick: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = item.otherName.take(1).uppercase(),
+                        text = if (isRevealed) displayName.take(1).uppercase() else "?",
                         color = Bg,
                         style = MaterialTheme.typography.labelLarge,
                     )
@@ -138,7 +153,7 @@ private fun RecentSearchRow(item: MatchFeedItem, onClick: () -> Unit) {
 
             Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
                 Text(
-                    text = item.otherName,
+                    text = displayName,
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimary,
                 )
