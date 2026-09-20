@@ -1,60 +1,65 @@
 package com.hackmit.twins.onboarding
 
-import com.hackmit.twins.ui.cute.RiseIn
-import com.hackmit.twins.ui.cute.MascotBubble
-import kotlinx.coroutines.CancellationException
-import com.hackmit.twins.voice.VoiceRepository
-import androidx.core.content.ContextCompat
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.layout.imePadding
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.BackHandler
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Base64
-import android.widget.Toast
 import android.util.Log
-import android.content.pm.PackageManager
-import android.Manifest
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import com.facebook.CallbackManager
 import com.facebook.FacebookCallback
 import com.facebook.FacebookException
@@ -62,33 +67,35 @@ import com.facebook.login.LoginResult
 import com.facebook.login.widget.LoginButton
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
+import com.hackmit.twins.ui.ListeningAvatar
+import com.hackmit.twins.ui.cute.RiseIn
 import com.hackmit.twins.ui.theme.KlickColors
+import com.hackmit.twins.ui.theme.SpaceGroteskFamily
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.hackmit.twins.voice.VoiceRepository
+
+private const val TOTAL_STEPS = 3
 
 /**
- * Twin-creation screen — see CLAUDE.md's two-tier context model.
+ * Twin-creation flow — three steps, mirroring the product's step-counter/
+ * dot-pagination pattern used elsewhere for this kind of guided setup:
  *
- * Tier A (everyone): a single "paste anything about yourself" text dump
- * plus an optional Instagram handle field, both submitted together by the
- * one "Build my twin" action. The text dump goes to the `submitContext`
- * callable; the handle (if given) goes to `importSocialContext`'s
- * `instagram` provider, which runs a public web search for it via
- * Parallel (see lib/parallel.ts) rather than any OAuth flow — it works for
- * any handle, not just tester accounts. The Instagram search is
- * best-effort: it's awaited before navigating away (since this screen's
- * coroutine scope is cancelled on navigation) but never blocks onboarding
- * on failure — the text dump alone is always enough context on its own.
- * There's also the existing Facebook Login button scoped to
- * `public_profile` only (name + photo).
- *
- * Tier B (tester/role accounts on the Meta App only — see
- * importSocialContext.ts): an optional "Connect Facebook posts" button
- * that pulls real post text via Graph API. For any account without a role
- * on the Meta App, this fails gracefully with a friendly message rather
- * than an error — the text dump above is always enough on its own.
+ * 1. "Connect your context" — four connect points, each independent and
+ *    optional: a free-text/voice dump (Tier A, submitContext.ts), an
+ *    Instagram handle (Tier A via public web search), a LinkedIn PDF
+ *    upload, and Facebook Login for name+photo. See CLAUDE.md's two-tier
+ *    context model. Each one writes to the backend the moment it succeeds
+ *    (tapping its circle), not batched behind a single submit — "Continue"
+ *    just moves to the next step.
+ * 2. "Set your boundaries" — what the twin is/isn't allowed to bring up
+ *    during negotiation (submitBoundaries.ts; enforced in
+ *    negotiateTwins.ts's persona prompt, not as a filter on the extracted
+ *    profile). This call also flips onboardingComplete, since it's reached
+ *    regardless of which/whether any step-1 source was connected.
+ * 3. "You're in" — completion screen; "Enter Klick" hands off to Home.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnboardingScreen(
     twinId: String,
@@ -96,18 +103,31 @@ fun OnboardingScreen(
     onBack: () -> Unit,
     onSkip: () -> Unit,
 ) {
-    // Onboarding is the root of the back stack once you're signed in, so
-    // without this the system back gesture just closes the app.
-    BackHandler(onBack = onBack)
-
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // Voice: dictate into the text box instead of typing (Deepgram, via
-    // functions/src/voice.ts). usedVoice makes the twin answer out loud once.
+    var step by remember { mutableStateOf(0) }
+
+    // Step 1 back to sign-in (root of this flow); step 2/3 back to the
+    // previous step. Mirrors the top-left arrow's own onClick below.
+    BackHandler { if (step == 0) onBack() else step -= 1 }
+
+    // ---- Step 1: connect sources ------------------------------------
+
+    var contextConnected by remember { mutableStateOf(false) }
+    var instagramConnected by remember { mutableStateOf(false) }
+    var linkedinConnected by remember { mutableStateOf(false) }
+    var facebookConnected by remember { mutableStateOf(false) }
+
+    var showContextDialog by remember { mutableStateOf(false) }
+    var showInstagramDialog by remember { mutableStateOf(false) }
+    var showFacebookDialog by remember { mutableStateOf(false) }
+
+    var textDump by remember { mutableStateOf("") }
+    var isSubmittingContext by remember { mutableStateOf(false) }
+    var contextError by remember { mutableStateOf<String?>(null) }
     var isListening by remember { mutableStateOf(false) }
     var isTranscribing by remember { mutableStateOf(false) }
-    var usedVoice by remember { mutableStateOf(false) }
 
     fun startListening() {
         try {
@@ -126,195 +146,290 @@ fun OnboardingScreen(
         else Toast.makeText(context, "No mic access, so typing it is.", Toast.LENGTH_SHORT).show()
     }
 
-    var textDump by remember { mutableStateOf("") }
-    var isSubmitting by remember { mutableStateOf(false) }
-    var submitError by remember { mutableStateOf<String?>(null) }
-
-    var fbName by remember { mutableStateOf<String?>(null) }
-    var instagramHandle by remember { mutableStateOf("") }
-    var socialStatusMessage by remember { mutableStateOf<String?>(null) }
-    var isImportingSocial by remember { mutableStateOf(false) }
-
-    // Two separate CallbackManager instances — one per LoginButton — rather
-    // than sharing one across both widgets. The Facebook SDK dispatches
-    // login results by a fixed request code shared across ALL login
-    // attempts on a given CallbackManager, so registering two independent
-    // callbacks (name/photo vs. user_posts) on the *same* manager risks
-    // both firing for either button's result. Isolating them per-widget
-    // avoids that ambiguity entirely.
-    val nameLoginCallbackManager = remember { CallbackManager.Factory.create() }
-    val postsLoginCallbackManager = remember { CallbackManager.Factory.create() }
-
-    fun submitTextDump() {
+    fun submitContextDump() {
         val dump = textDump.trim()
-        if (dump.isEmpty() || isSubmitting) return
-        isSubmitting = true
-        submitError = null
+        if (dump.isEmpty() || isSubmittingContext) return
+        isSubmittingContext = true
+        contextError = null
         scope.launch {
             try {
-                val payload = hashMapOf(
-                    "twinId" to twinId,
-                    "textDump" to dump,
-                )
                 Firebase.functions
                     .getHttpsCallable("submitContext")
-                    .call(payload)
+                    .call(hashMapOf("twinId" to twinId, "textDump" to dump))
                     .await()
-
-                // Optional Instagram handle, submitted alongside the text
-                // dump as part of the same action. Awaited here (not fired
-                // off separately) so it actually runs to completion before
-                // we navigate away and this screen's coroutine scope gets
-                // cancelled — but any failure here is swallowed, never
-                // blocking onboarding. See the file header comment.
-                val handle = instagramHandle.trim().removePrefix("@")
-                if (handle.isNotEmpty()) {
-                    try {
-                        Firebase.functions
-                            .getHttpsCallable("importSocialContext")
-                            .call(
-                                hashMapOf(
-                                    "twinId" to twinId,
-                                    "provider" to "instagram",
-                                    "instagramHandle" to handle,
-                                ),
-                            )
-                            .await()
-                    } catch (_: Exception) {
-                        // Best-effort — no worries, the text dump above is
-                        // always enough context on its own.
-                    }
-                }
-
-                // You talked to it, so it talks back. Fire-and-forget on the
-                // app-wide scope: this screen is about to leave composition.
-                if (usedVoice) {
-                    VoiceRepository.speakInBackground(
-                        context,
-                        "Got it. I'll keep an eye out for people worth meeting, and only interrupt you when it counts.",
-                    )
-                }
-                onOnboardingComplete()
+                contextConnected = true
+                showContextDialog = false
             } catch (e: Exception) {
-                submitError = "Couldn't save that just now — mind trying again? (${e.message})"
+                contextError = "Couldn't save that just now — mind trying again? (${e.message})"
             } finally {
-                isSubmitting = false
+                isSubmittingContext = false
             }
         }
     }
 
-    fun importSocialContext(provider: String, extra: Map<String, String>) {
-        isImportingSocial = true
-        socialStatusMessage = null
+    var instagramHandle by remember { mutableStateOf("") }
+    var isSubmittingInstagram by remember { mutableStateOf(false) }
+    var instagramStatus by remember { mutableStateOf<String?>(null) }
+
+    fun submitInstagram() {
+        val handle = instagramHandle.trim().removePrefix("@")
+        if (handle.isEmpty() || isSubmittingInstagram) return
+        isSubmittingInstagram = true
+        instagramStatus = null
         scope.launch {
             try {
-                val payload = hashMapOf<String, Any>(
-                    "twinId" to twinId,
-                    "provider" to provider,
-                )
-                payload.putAll(extra)
                 val result = Firebase.functions
                     .getHttpsCallable("importSocialContext")
-                    .call(payload)
+                    .call(
+                        hashMapOf(
+                            "twinId" to twinId,
+                            "provider" to "instagram",
+                            "instagramHandle" to handle,
+                        ),
+                    )
                     .await()
                 @Suppress("UNCHECKED_CAST")
                 val data = result.data as? Map<String, Any?>
-                socialStatusMessage = data?.get("message") as? String
-                    ?: "Done — check your twin's context."
+                instagramStatus = data?.get("message") as? String ?: "Done."
+                instagramConnected = true
             } catch (e: Exception) {
-                socialStatusMessage = "Couldn't reach the server just now. (${e.message})"
+                instagramStatus = "Couldn't reach the server just now. (${e.message})"
             } finally {
-                isImportingSocial = false
+                isSubmittingInstagram = false
             }
         }
     }
 
+    var isImportingLinkedin by remember { mutableStateOf(false) }
+    var linkedinStatus by remember { mutableStateOf<String?>(null) }
+
     // LinkedIn: no API worth building against for a weekend (it's invite-
-    // only partner access) — instead the client reads whatever PDF the
-    // user picks (meant to be LinkedIn's own "Save to PDF" profile export),
+    // only partner access) — instead the client reads whatever PDF the user
+    // picks (meant to be LinkedIn's own "Save to PDF" profile export),
     // base64-encodes it, and folds it into the same importSocialContext
     // pipeline as Facebook/Instagram (see importSocialContext.ts's
-    // "linkedin" provider + lib/linkedinPdf.ts for the server-side text
-    // extraction). Reuses isImportingSocial/socialStatusMessage below.
+    // "linkedin" provider + lib/linkedinPdf.ts for server-side extraction).
+    // No dialog needed — tapping the circle goes straight to the file picker.
     val linkedinPdfPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            isImportingSocial = true
-            socialStatusMessage = null
+            isImportingLinkedin = true
+            linkedinStatus = null
             try {
                 val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                     ?: throw IllegalStateException("Couldn't open that file.")
                 val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                importSocialContext("linkedin", mapOf("pdfBase64" to base64))
+                val result = Firebase.functions
+                    .getHttpsCallable("importSocialContext")
+                    .call(
+                        hashMapOf(
+                            "twinId" to twinId,
+                            "provider" to "linkedin",
+                            "pdfBase64" to base64,
+                        ),
+                    )
+                    .await()
+                @Suppress("UNCHECKED_CAST")
+                val data = result.data as? Map<String, Any?>
+                linkedinStatus = data?.get("message") as? String ?: "Done."
+                linkedinConnected = true
             } catch (e: Exception) {
-                isImportingSocial = false
-                socialStatusMessage = "Couldn't read that PDF. (${e.message})"
+                linkedinStatus = "Couldn't read that PDF. (${e.message})"
+            } finally {
+                isImportingLinkedin = false
             }
         }
     }
 
-    Scaffold(
-        containerColor = KlickColors.PageBackground,
-        topBar = {
-            TopAppBar(
-                title = { Text("Build your twin") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to sign in",
-                        )
-                    }
-                },
-                actions = {
-                    // Never trap someone here: the twin is thinner without
-                    // it, but they can come back (next launch returns here).
-                    TextButton(onClick = onSkip) {
-                        Text("Skip for now", color = KlickColors.TextSecondary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KlickColors.PageBackground,
-                ),
-            )
-        },
-    ) { padding ->
+    var fbName by remember { mutableStateOf<String?>(null) }
+    val nameLoginCallbackManager = remember { CallbackManager.Factory.create() }
+
+    // ---- Step 2: boundaries ------------------------------------------
+
+    var careerOn by remember { mutableStateOf(true) }
+    var personalOn by remember { mutableStateOf(true) }
+    var deeplyPersonalOn by remember { mutableStateOf(false) }
+    var isSavingBoundaries by remember { mutableStateOf(false) }
+
+    fun saveBoundariesAndAdvance() {
+        if (isSavingBoundaries) return
+        isSavingBoundaries = true
+        scope.launch {
+            try {
+                Firebase.functions
+                    .getHttpsCallable("submitBoundaries")
+                    .call(
+                        hashMapOf(
+                            "twinId" to twinId,
+                            "career" to careerOn,
+                            "personalInterests" to personalOn,
+                            "deeplyPersonalHistory" to deeplyPersonalOn,
+                        ),
+                    )
+                    .await()
+            } catch (e: Exception) {
+                // Best-effort: defaults apply server-side (see
+                // DEFAULT_BOUNDARIES) if this write never lands, and the
+                // user isn't blocked from finishing onboarding over it.
+                Log.e("Onboarding", "submitBoundaries failed", e)
+            } finally {
+                isSavingBoundaries = false
+                step = 2
+            }
+        }
+    }
+
+    Scaffold(containerColor = KlickColors.PageBackground) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .imePadding(),
         ) {
-            RiseIn {
-                MascotBubble(
-                    text = "Hi, I'm your twin! Tell me about you: what you're building, what " +
-                        "you're into, who you'd love to bump into this weekend. Type it, paste " +
-                        "it, or just say it out loud.",
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { if (step == 0) onBack() else step -= 1 }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = KlickColors.TextPrimary,
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                // Only on step 1 — never trap someone here, but the escape
+                // hatch doesn't need to clutter steps 2/3.
+                if (step == 0) {
+                    TextButton(onClick = onSkip) {
+                        Text("Skip for now", color = KlickColors.TextSecondary)
+                    }
+                }
             }
 
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp),
+            ) {
+                Text(
+                    text = "STEP ${step + 1} OF $TOTAL_STEPS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = KlickColors.TextSecondary,
+                    letterSpacing = 0.08.em,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = when (step) {
+                        0 -> "Connect your\ncontext"
+                        1 -> "Set your\nboundaries"
+                        else -> "You're in"
+                    },
+                    fontFamily = SpaceGroteskFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 40.sp,
+                    lineHeight = 44.sp,
+                    letterSpacing = (-0.02).em,
+                    color = KlickColors.TextPrimary,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = when (step) {
+                        0 -> "Link the accounts that already say who you are. Nothing is posted, nothing is public."
+                        1 -> "Choose what your twin can talk about, and what stays off-limits — always visible, always editable."
+                        else -> "Your twin is ready. It'll work quietly in the background and only interrupt you when it matters."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = KlickColors.TextSecondary,
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+
+                when (step) {
+                    0 -> ConnectStep(
+                        contextConnected = contextConnected,
+                        instagramConnected = instagramConnected,
+                        linkedinConnected = linkedinConnected,
+                        facebookConnected = facebookConnected,
+                        isImportingLinkedin = isImportingLinkedin,
+                        onTapContext = { showContextDialog = true },
+                        onTapInstagram = { showInstagramDialog = true },
+                        onTapLinkedin = { linkedinPdfPicker.launch("application/pdf") },
+                        onTapFacebook = { showFacebookDialog = true },
+                    )
+                    1 -> BoundariesStep(
+                        careerOn = careerOn,
+                        onCareerChange = { careerOn = it },
+                        personalOn = personalOn,
+                        onPersonalChange = { personalOn = it },
+                        deeplyPersonalOn = deeplyPersonalOn,
+                        onDeeplyPersonalChange = { deeplyPersonalOn = it },
+                    )
+                    else -> CompleteStep()
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StepDots(current = step, total = TOTAL_STEPS)
+                Button(
+                    onClick = {
+                        when (step) {
+                            0 -> step = 1
+                            1 -> saveBoundariesAndAdvance()
+                            else -> onOnboardingComplete()
+                        }
+                    },
+                    enabled = !isSavingBoundaries,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = KlickColors.TextPrimary,
+                        contentColor = KlickColors.OnDark,
+                    ),
+                ) {
+                    if (isSavingBoundaries) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.height(18.dp),
+                            color = KlickColors.OnDark,
+                        )
+                    } else {
+                        Text(
+                            text = if (step == TOTAL_STEPS - 1) "Enter Klick" else "Continue",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showContextDialog) {
+        ConnectDialog(onDismiss = { showContextDialog = false }, title = "Tell us about yourself") {
+            Text(
+                text = "Paste anything — a bio, notes on what you're working on, what you're hoping to get out of this weekend.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = KlickColors.TextSecondary,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
                 value = textDump,
                 onValueChange = { textDump = it },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("e.g. I'm a CS student building a founder community...") },
-                minLines = 6,
+                minLines = 5,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = KlickColors.TextPrimary,
                     unfocusedBorderColor = KlickColors.Border,
-                    focusedContainerColor = KlickColors.CardSurface,
-                    unfocusedContainerColor = KlickColors.CardSurface,
                 ),
             )
-
-            // Say it instead of typing it. Each take is appended, so you can
-            // talk in a few goes and still edit the text before submitting.
+            Spacer(modifier = Modifier.height(10.dp))
             OutlinedButton(
                 onClick = {
                     when {
@@ -328,7 +443,6 @@ fun OnboardingScreen(
                                         Toast.makeText(context, "Didn't catch that.", Toast.LENGTH_SHORT).show()
                                     } else {
                                         textDump = listOf(textDump.trim(), heard).filter { it.isNotEmpty() }.joinToString(" ")
-                                        usedVoice = true
                                     }
                                 } catch (e: CancellationException) {
                                     throw e
@@ -345,7 +459,7 @@ fun OnboardingScreen(
                         else -> micPermission.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 },
-                enabled = !isSubmitting && !isTranscribing,
+                enabled = !isSubmittingContext && !isTranscribing,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, if (isListening) KlickColors.TextPrimary else KlickColors.Border),
@@ -360,16 +474,35 @@ fun OnboardingScreen(
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
+            if (contextError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(contextError ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Button(
+                onClick = { submitContextDump() },
+                enabled = textDump.isNotBlank() && !isSubmittingContext,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = KlickColors.TextPrimary, contentColor = KlickColors.OnDark),
+            ) {
+                if (isSubmittingContext) {
+                    CircularProgressIndicator(modifier = Modifier.height(20.dp), color = KlickColors.OnDark)
+                } else {
+                    Text("Save", style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+    }
 
-            // Optional — no OAuth, works for any handle: submitted together
-            // with the text dump above, this runs a public web search for
-            // it via Parallel (see importSocialContext.ts / lib/parallel.ts)
-            // rather than Graph API.
+    if (showInstagramDialog) {
+        ConnectDialog(onDismiss = { showInstagramDialog = false }, title = "Instagram") {
             Text(
-                text = "Instagram handle (optional)",
+                text = "No login needed — just your handle. We search what's publicly visible.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = KlickColors.TextPrimary,
+                color = KlickColors.TextSecondary,
             )
+            Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
                 value = instagramHandle,
                 onValueChange = { instagramHandle = it },
@@ -380,203 +513,233 @@ fun OnboardingScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = KlickColors.TextPrimary,
                     unfocusedBorderColor = KlickColors.Border,
-                    focusedContainerColor = KlickColors.CardSurface,
-                    unfocusedContainerColor = KlickColors.CardSurface,
                 ),
             )
-
-            // Optional — no OAuth: reads whatever PDF the user picks
-            // (meant to be LinkedIn's own "Save to PDF" profile export) and
-            // folds its text into the twin's context alongside the dump
-            // above. See importSocialContext.ts's "linkedin" provider.
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = KlickColors.CardSurface),
-                border = BorderStroke(1.dp, KlickColors.Border),
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = "LinkedIn (optional)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = KlickColors.TextPrimary,
-                    )
-                    Text(
-                        text = "On your LinkedIn profile: More → Save to PDF. Upload that here.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = KlickColors.TextSecondary,
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedButton(
-                        onClick = { linkedinPdfPicker.launch("application/pdf") },
-                        enabled = !isImportingSocial,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, KlickColors.Border),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = KlickColors.TextPrimary),
-                    ) {
-                        Text("Upload LinkedIn PDF", style = MaterialTheme.typography.labelLarge)
-                    }
-                    if (isImportingSocial) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        CircularProgressIndicator(modifier = Modifier.height(20.dp))
-                    }
-                    if (socialStatusMessage != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = socialStatusMessage ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = KlickColors.TextSecondary,
-                        )
-                    }
-                }
+            if (instagramStatus != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(instagramStatus ?: "", style = MaterialTheme.typography.bodySmall, color = KlickColors.TextSecondary)
             }
-
-            if (submitError != null) {
-                Text(
-                    text = submitError ?: "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
+            Spacer(modifier = Modifier.height(14.dp))
             Button(
-                onClick = { submitTextDump() },
-                enabled = textDump.isNotBlank() && !isSubmitting,
+                onClick = { submitInstagram() },
+                enabled = instagramHandle.isNotBlank() && !isSubmittingInstagram,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = KlickColors.TextPrimary,
-                    contentColor = KlickColors.OnDark,
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = KlickColors.TextPrimary, contentColor = KlickColors.OnDark),
             ) {
-                if (isSubmitting) {
-                    CircularProgressIndicator(modifier = Modifier.height(20.dp))
+                if (isSubmittingInstagram) {
+                    CircularProgressIndicator(modifier = Modifier.height(20.dp), color = KlickColors.OnDark)
                 } else {
-                    Text("Build my twin", style = MaterialTheme.typography.labelLarge)
+                    Text("Connect", style = MaterialTheme.typography.labelLarge)
                 }
             }
+        }
+    }
 
-            // Facebook Login: public_profile only, for name + photo on the
-            // twin's card. Wrapped in AndroidView since the official SDK's
-            // LoginButton is a plain Android View, not a Compose component.
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = KlickColors.CardSurface),
-                border = BorderStroke(1.dp, KlickColors.Border),
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = fbName?.let { "Signed in as $it" }
-                            ?: "Optional: add your name + photo via Facebook",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = KlickColors.TextSecondary,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AndroidView(
-                        factory = { ctx ->
-                            LoginButton(ctx).apply {
-                                // public_profile ONLY — no email, no friends,
-                                // no posting permissions. See CLAUDE.md.
-                                setPermissions("public_profile")
-                                registerCallback(
-                                    nameLoginCallbackManager,
-                                    object : FacebookCallback<LoginResult> {
-                                        override fun onSuccess(result: LoginResult) {
-                                            fbName = result.accessToken.userId
-                                            // TODO: fetch /me?fields=name,picture via a
-                                            // GraphRequest and store on the twin profile
-                                            // doc alongside twinId.
-                                        }
+    if (showFacebookDialog) {
+        ConnectDialog(onDismiss = { showFacebookDialog = false }, title = "Facebook") {
+            Text(
+                text = fbName?.let { "Connected." }
+                    ?: "public_profile only — just your name and photo, nothing else.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = KlickColors.TextSecondary,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            // Wrapped in AndroidView since the official SDK's LoginButton is
+            // a plain Android View, not a Compose component.
+            AndroidView(
+                factory = { ctx ->
+                    LoginButton(ctx).apply {
+                        setPermissions("public_profile")
+                        registerCallback(
+                            nameLoginCallbackManager,
+                            object : FacebookCallback<LoginResult> {
+                                override fun onSuccess(result: LoginResult) {
+                                    fbName = result.accessToken.userId
+                                    facebookConnected = true
+                                    // TODO: fetch /me?fields=name,picture via a
+                                    // GraphRequest and store on the twin profile
+                                    // doc alongside twinId.
+                                }
 
-                                        override fun onCancel() {}
+                                override fun onCancel() {}
 
-                                        override fun onError(error: FacebookException) {}
-                                    },
-                                )
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-
-            // Tier B (see CLAUDE.md): a real Graph API pull, but only
-            // functional for accounts added as a Tester/Developer/Admin on
-            // the Meta App while it's in Development Mode. For every other
-            // account this fails gracefully — the text dump above already
-            // covers everyone.
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = KlickColors.CardSurface),
-                border = BorderStroke(1.dp, KlickColors.Border),
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = "Beta: connect Facebook posts",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = KlickColors.TextPrimary,
-                    )
-                    Text(
-                        text = "Only works on a small set of connected demo accounts for " +
-                            "now — everyone else, no worries, the text dump above is what " +
-                            "your twin uses.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = KlickColors.TextSecondary,
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Classic Facebook Login, but requesting `user_posts` in
-                    // addition to public_profile — a separate LoginButton
-                    // instance from the name/photo one above, since it needs
-                    // a different (broader) permission set.
-                    AndroidView(
-                        factory = { ctx ->
-                            LoginButton(ctx).apply {
-                                text = "Connect Facebook posts"
-                                setPermissions("public_profile", "user_posts")
-                                registerCallback(
-                                    postsLoginCallbackManager,
-                                    object : FacebookCallback<LoginResult> {
-                                        override fun onSuccess(result: LoginResult) {
-                                            importSocialContext(
-                                                "facebook",
-                                                mapOf("accessToken" to result.accessToken.token),
-                                            )
-                                        }
-
-                                        override fun onCancel() {}
-
-                                        override fun onError(error: FacebookException) {
-                                            socialStatusMessage =
-                                                "Facebook connect failed: ${error.message}"
-                                        }
-                                    },
-                                )
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    if (isImportingSocial) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        CircularProgressIndicator(modifier = Modifier.height(20.dp))
-                    }
-                    if (socialStatusMessage != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = socialStatusMessage ?: "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = KlickColors.TextSecondary,
+                                override fun onError(error: FacebookException) {}
+                            },
                         )
                     }
-                }
-            }
-
-            // Room to breathe below the last card when scrolled to the bottom.
-            Spacer(modifier = Modifier.height(24.dp))
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
+
+@Composable
+private fun ConnectStep(
+    contextConnected: Boolean,
+    instagramConnected: Boolean,
+    linkedinConnected: Boolean,
+    facebookConnected: Boolean,
+    isImportingLinkedin: Boolean,
+    onTapContext: () -> Unit,
+    onTapInstagram: () -> Unit,
+    onTapLinkedin: () -> Unit,
+    onTapFacebook: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+        RiseIn(index = 0) {
+            ConnectCircle(label = "✎", caption = "Context", connected = contextConnected, onClick = onTapContext)
+        }
+        RiseIn(index = 1) {
+            ConnectCircle(label = "IG", caption = "Instagram", connected = instagramConnected, onClick = onTapInstagram)
+        }
+        RiseIn(index = 2) {
+            ConnectCircle(
+                label = "in",
+                caption = "LinkedIn",
+                connected = linkedinConnected,
+                loading = isImportingLinkedin,
+                onClick = onTapLinkedin,
+            )
+        }
+        RiseIn(index = 3) {
+            ConnectCircle(label = "FB", caption = "Photo", connected = facebookConnected, onClick = onTapFacebook)
+        }
+    }
+}
+
+@Composable
+private fun ConnectCircle(
+    label: String,
+    caption: String,
+    connected: Boolean,
+    onClick: () -> Unit,
+    loading: Boolean = false,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(if (connected) KlickColors.TextPrimary else KlickColors.InsetSurface)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = if (connected) KlickColors.OnDark else KlickColors.TextSecondary,
+                )
+            } else {
+                Text(
+                    text = label,
+                    fontFamily = SpaceGroteskFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = if (connected) KlickColors.OnDark else KlickColors.TextSecondary,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = if (connected) "Connected" else "Connect",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (connected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (connected) KlickColors.TextPrimary else KlickColors.TextSecondary,
+        )
+    }
+}
+
+@Composable
+private fun BoundariesStep(
+    careerOn: Boolean,
+    onCareerChange: (Boolean) -> Unit,
+    personalOn: Boolean,
+    onPersonalChange: (Boolean) -> Unit,
+    deeplyPersonalOn: Boolean,
+    onDeeplyPersonalChange: (Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        RiseIn(index = 0) {
+            BoundaryRow("Career & projects", careerOn) { onCareerChange(!careerOn) }
+        }
+        RiseIn(index = 1) {
+            BoundaryRow("Personal interests", personalOn) { onPersonalChange(!personalOn) }
+        }
+        RiseIn(index = 2) {
+            BoundaryRow("Deeply personal history", deeplyPersonalOn) { onDeeplyPersonalChange(!deeplyPersonalOn) }
+        }
+    }
+}
+
+@Composable
+private fun BoundaryRow(label: String, on: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(KlickColors.InsetSurface)
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 18.dp, vertical = 18.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodyLarge, color = KlickColors.TextPrimary)
+        Text(
+            text = if (on) "On" else "Off",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (on) KlickColors.TextPrimary else KlickColors.TextTertiary,
+        )
+    }
+}
+
+@Composable
+private fun CompleteStep() {
+    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+        RiseIn { ListeningAvatar(size = 108.dp) }
+    }
+}
+
+@Composable
+private fun StepDots(current: Int, total: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        repeat(total) { i ->
+            Box(
+                modifier = Modifier
+                    .height(8.dp)
+                    .width(if (i == current) 22.dp else 8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(if (i == current) KlickColors.TextPrimary else KlickColors.Border),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConnectDialog(
+    onDismiss: () -> Unit,
+    title: String,
+    content: @Composable ColumnScopeContent,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = KlickColors.CardSurface,
+            border = BorderStroke(1.dp, KlickColors.Border),
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = KlickColors.TextPrimary,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                content()
+            }
+        }
+    }
+}
+
+private typealias ColumnScopeContent = androidx.compose.foundation.layout.ColumnScope.() -> Unit

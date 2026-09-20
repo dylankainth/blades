@@ -25,8 +25,31 @@ import { db } from "./lib/admin";
 import { META_MODEL_API_KEY } from "./lib/secrets";
 import { callMetaModel, type MetaModelMessage } from "./lib/metaModel";
 import type { JudgeFeedDoc, MatchDoc, NegotiationTurn, TwinProfile } from "./types";
+import { DEFAULT_BOUNDARIES } from "./types";
 
 const NEGOTIATION_ROUNDS = 2; // each twin speaks this many times
+
+/**
+ * The onboarding "Set your boundaries" step, translated into an explicit
+ * negotiation-time instruction — each twin self-censors on its OWN person's
+ * behalf, deciding what it's willing to bring up about them, rather than
+ * this being a filter applied to the extracted profile beforehand. Absent
+ * boundaries (twin created before this field existed, or never touched the
+ * step) fall back to DEFAULT_BOUNDARIES, matching what a user who accepted
+ * the defaults would get.
+ */
+function boundariesInstruction(twin: TwinProfile): string {
+  const b = twin.boundaries ?? DEFAULT_BOUNDARIES;
+  const offLimits: string[] = [];
+  if (!b.career) offLimits.push("their career, job, or projects");
+  if (!b.personalInterests) offLimits.push("their personal interests/hobbies");
+  if (!b.deeplyPersonalHistory) offLimits.push("deeply personal history (e.g. health, family, relationships, past struggles)");
+
+  if (offLimits.length === 0) {
+    return "";
+  }
+  return `\n\n${twin.name || "This person"} has asked you not to bring up: ${offLimits.join("; ")}. Even if their profile below mentions any of this, do not surface it in the conversation — stick to what's in bounds.`;
+}
 
 function personaSystemPrompt(speaker: TwinProfile, other: TwinProfile): string {
   return `You are the digital twin representing ${speaker.name || "a person"} at a
@@ -47,7 +70,7 @@ to connect, say so plainly. Keep each message to 1-3 sentences. You are
 negotiating with the other person's twin; work toward a shared, concrete,
 plain-language reason the two humans should talk (or a clear "not a strong
 match" conclusion). Never say you will message, notify, or schedule anything
-yourself — that is handled outside this conversation by a human.`;
+yourself — that is handled outside this conversation by a human.${boundariesInstruction(speaker)}`;
 }
 
 const MATCH_SCORE_THRESHOLD = 70;

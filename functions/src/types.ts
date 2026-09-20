@@ -1,5 +1,18 @@
 import type { Timestamp } from "firebase-admin/firestore";
 
+/** twins/{twinId}.boundaries — see TwinProfile.boundaries and submitBoundaries.ts. */
+export interface TwinBoundaries {
+  career: boolean;
+  personalInterests: boolean;
+  deeplyPersonalHistory: boolean;
+}
+
+export const DEFAULT_BOUNDARIES: TwinBoundaries = {
+  career: true,
+  personalInterests: true,
+  deeplyPersonalHistory: false,
+};
+
 /** twins/{twinId} */
 export interface TwinProfile {
   twinId: string;
@@ -26,6 +39,16 @@ export interface TwinProfile {
   socialContext?: string | null;
   /** FCM device token(s) to push notifications to. */
   fcmTokens?: string[];
+  /**
+   * What this twin is allowed to bring up during negotiation — the
+   * onboarding "Set your boundaries" step. Defaults (career: true,
+   * personalInterests: true, deeplyPersonalHistory: false) apply whenever
+   * this is absent, so older twins created before this field existed
+   * behave the same as someone who accepted the defaults. Read by
+   * negotiateTwins.ts to instruct the model what NOT to surface about this
+   * person, even if it's present in their summary/interests/rawContext.
+   */
+  boundaries?: TwinBoundaries;
   onboardingComplete?: boolean;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
