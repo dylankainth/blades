@@ -10,8 +10,8 @@ proximity-gated digital-twin matchmaking prototype. See the repo root
 functions/
   src/
     index.ts               exports every deployable function
-    submitContext.ts        callable: one-shot text-dump -> profile extraction (Tier A)
-    importSocialContext.ts  callable: Instagram web search / Facebook Graph API pull -> profile
+    submitContext.ts        callable: one-shot text-dump -> profile extraction
+    importSocialContext.ts  callable: Instagram web search / LinkedIn PDF -> profile
     onCheckin.ts             Firestore trigger: checkins/{locationId}/people/{twinId}
     negotiateTwins.ts        twin-to-twin negotiation (callable + internal helper)
     notifyMatch.ts           Firestore trigger: matches/{matchId} -> FCM push
@@ -21,34 +21,28 @@ functions/
       secrets.ts             Cloud Functions v2 secret/param declarations
       metaModel.ts            fetch-based client for the Meta Model API
       extractProfile.ts       shared text -> {name, summary, interests} extraction call
-      graphApi.ts             Facebook Graph API helper (Tier B, tester accounts only)
       parallel.ts             Parallel Search API client (Instagram web search, everyone)
 ```
 
-## Two-tier context model (see root `CLAUDE.md`)
+## Context sources (see root `CLAUDE.md`)
 
-- **Tier A (every user)**: a single pasted text dump (`submitContext`), the
-  existing `public_profile`-only Facebook Login for name/photo, and an
-  optional Instagram handle that's fed into a public web search via the
-  Parallel Search API (`importSocialContext`'s `instagram` provider — see
-  `lib/parallel.ts`). No OAuth, no App Review, no Meta App Dashboard setup
-  — works for any handle, at the cost of only surfacing whatever's
-  actually publicly indexed about it.
-- **Tier B (tester/role accounts on the Meta App only)**: real Facebook
-  post text via Graph API (`importSocialContext`'s `facebook` provider),
-  merged into the same profile. This only works for accounts added as a
-  Tester/Developer/Admin under the Meta App's Roles panel while it's in
-  Development Mode — `user_posts` is a Standard Access permission, so any
-  other account's login attempt is rejected by Graph API outright, not
-  slowly reviewed. `importSocialContext` treats that as a normal,
-  reportable outcome (`imported: false`) rather than an error.
+- **Text dump (every user)**: a single pasted "tell us about yourself"
+  (`submitContext`).
+- **Instagram (optional)**: an Instagram handle fed into a public web
+  search via the Parallel Search API (`importSocialContext`'s `instagram`
+  provider — see `lib/parallel.ts`). No OAuth, no App Review, no Meta App
+  Dashboard setup — works for any handle, at the cost of only surfacing
+  whatever's actually publicly indexed about it.
+- **LinkedIn (optional)**: a "Save to PDF" LinkedIn profile export
+  (`importSocialContext`'s `linkedin` provider — see `lib/linkedinPdf.ts`).
+  No OAuth; works for anyone with a LinkedIn account.
 
 ## Firestore data model
 
 - `twins/{twinId}` — profile: `name`, `photoUrl`, `summary`/`interests`
   (what `negotiateTwins.ts` actually reads), `rawContext` (the user's own
-  text dump), `socialContext` (Instagram web-search results for any user,
-  plus Facebook post text for tester accounts), FCM tokens.
+  text dump), `socialContext` (Instagram web-search results and/or LinkedIn
+  PDF text), FCM tokens.
 - `context_submissions/{twinId}` — audit trail of what a twin's context was
   built from (`textDump`, `socialContext`). Not read by negotiation; exists
   purely for debugging/provenance.
@@ -63,8 +57,8 @@ functions/
 
 | Function | Trigger | Purpose |
 |---|---|---|
-| `submitContext` | callable | Tier A: one-shot text dump -> extracted `summary`/`interests` via the Meta Model API (Muse Spark), written to `twins/{twinId}`. |
-| `importSocialContext` | callable | `provider: "instagram"` runs a public Parallel web search for the twin's own handle (works for anyone); `provider: "facebook"` pulls Facebook posts (`user_posts`) via Graph API (tester/role accounts only). Either way, re-runs extraction and merges into `twins/{twinId}`. Facebook fails gracefully (non-tester accounts); Instagram fails gracefully too (Parallel errors / no results). |
+| `submitContext` | callable | One-shot text dump -> extracted `summary`/`interests` via the Meta Model API (Muse Spark), written to `twins/{twinId}`. |
+| `importSocialContext` | callable | `provider: "instagram"` runs a public Parallel web search for the twin's own handle (works for anyone); `provider: "linkedin"` extracts text from a LinkedIn "Save to PDF" export. Either way, re-runs extraction and merges into `twins/{twinId}`. Both fail gracefully (Parallel errors / no results, unreadable PDF). |
 | `onCheckin` | `checkins/{locationId}/people/{twinId}` write | Finds other twins checked in at the same location in the last ~20 min and kicks off negotiation with each. |
 | `negotiateTwins` | callable (also called directly from `onCheckin`) | Runs the twin-to-twin negotiation over the Meta Model API and writes the transcript + outcome to `matches/{matchId}`. |
 | `notifyMatch` | `matches/{matchId}` write | On transition to `status: "confirmed"`, sends an FCM push to both twins with a "say hi?" prompt. Never auto-messages or auto-schedules. |
@@ -118,9 +112,6 @@ https://firebase.google.com/docs/functions/config-env#env-variables.
 - [ ] Wire up FCM device registration client-side (write the device token
       into `twins/{twinId}.fcmTokens`) so `notifyMatch` has somewhere to
       send pushes.
-- [ ] For Tier B (Facebook posts only): in the Meta App Dashboard, add
-      tester/demo accounts under App Roles and enable `user_posts`. See
-      CLAUDE.md's two-tier context model and `android/README.md`.
 
 ## Local dev
 

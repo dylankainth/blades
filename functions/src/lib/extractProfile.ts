@@ -1,10 +1,9 @@
 /**
  * Shared context -> structured-profile extraction.
  *
- * Used by both submitContext.ts (Tier A: the user's own pasted text dump)
- * and importSocialContext.ts (Tier B: scraped Instagram/Facebook caption
- * text, tester/role accounts only — see CLAUDE.md's two-tier context
- * model) since both ultimately need to turn freeform text into the same
+ * Used by both submitContext.ts (the user's own pasted text dump) and
+ * importSocialContext.ts (Instagram web-search results / LinkedIn PDF
+ * text) since both ultimately need to turn freeform text into the same
  * name/summary/interests shape that twins/{twinId} stores and
  * negotiateTwins.ts reads.
  */
@@ -14,7 +13,7 @@ import type { TwinFact } from "../types";
 const PROFILE_EXTRACTION_SYSTEM_PROMPT = `You will be given freeform text about a person, meant to build their profile
 for a networking-matchmaking app. It may include a "self-written context"
 section (their own words, most authoritative) and/or a "scraped social
-media" section (captions/posts pulled from their own Instagram/Facebook —
+media" section (Instagram web-search results or a LinkedIn PDF —
 secondary signal, useful for texture but weight the self-written section
 higher if the two disagree).
 
@@ -85,7 +84,7 @@ export async function extractProfile(
       ? `--- Self-written context (from the person directly) ---\n${rawContext.trim()}`
       : null,
     socialContext?.trim()
-      ? `--- Scraped social media captions/posts (Instagram/Facebook) ---\n${socialContext.trim()}`
+      ? `--- Scraped social media captions/posts (Instagram/LinkedIn) ---\n${socialContext.trim()}`
       : null,
   ].filter((s): s is string => !!s);
 

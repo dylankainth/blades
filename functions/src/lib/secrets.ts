@@ -16,10 +16,10 @@ export const DEEPGRAM_API_KEY = defineSecret("DEEPGRAM_API_KEY");
 
 /**
  * Parallel AI Search API key (https://api.parallel.ai), used only by
- * importSocialContext.ts's Instagram provider (see lib/parallel.ts and
- * CLAUDE.md's two-tier context model). Replaced an earlier Instagram
- * Business Login/Graph API branch that only worked for tester-role
- * Professional accounts — this is a plain public web search keyed on the
- * twin's own Instagram handle, so it works for any user, no OAuth needed.
+ * importSocialContext.ts's Instagram provider (see lib/parallel.ts).
+ * Replaced an earlier Instagram Business Login/Graph API branch that
+ * only worked for tester-role Professional accounts — this is a plain
+ * public web search keyed on the twin's own Instagram handle, so it
+ * works for any user, no OAuth needed.
  */
 export const PARALLEL_API_KEY = defineSecret("PARALLEL_API_KEY");

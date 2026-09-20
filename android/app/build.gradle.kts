@@ -75,10 +75,6 @@ dependencies {
     implementation("com.google.firebase:firebase-functions-ktx")
     implementation("com.google.firebase:firebase-messaging-ktx")
 
-    // Facebook Login (public_profile only, plus a tester-only user_posts
-    // flow — see OnboardingScreen.kt).
-    implementation("com.facebook.android:facebook-login:17.0.0")
-
     // Google Sign-In (classic GoogleSignInClient API — simpler to wire up
     // than Credential Manager for this scope). See auth/AuthManager.kt.
     implementation("com.google.android.gms:play-services-auth:21.2.0")

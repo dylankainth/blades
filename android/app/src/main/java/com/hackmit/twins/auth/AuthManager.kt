@@ -17,9 +17,6 @@ import kotlinx.coroutines.tasks.await
  * flow. The Firebase Auth uid is still what everything else in the app
  * calls "twinId" (BLE advertisement payload, Firestore checkin docs, FCM
  * targeting) — that part didn't change, just how a uid gets established.
- *
- * Facebook Login (see OnboardingScreen.kt) is separate and unrelated to
- * auth — it only grabs a public name + photo for the twin's profile card.
  */
 object AuthManager {
 

@@ -4,9 +4,7 @@
 
 Build digital twins (AI agents) of individual people, created quickly via a
 lightweight text dump rather than slow OAuth scraping. Anyone can also add
-an Instagram handle for a public web-search pull, and a curated set of demo
-accounts can additionally connect Facebook for real post data — see "Where
-the ambition breaks," item 1. Twins interact
+an Instagram handle for a public web-search pull. Twins interact
 with each other on your behalf to surface people you should meet, then
 notify you when
 you're physically near a good match — during an event like HackMIT with ~1000
@@ -72,43 +70,27 @@ event scale, and directly usable on ourselves in the room in front of judges.
      yourself, what are you hoping to get out of this weekend"). Faster to
      build, never breaks live, and feels more personal than "we read your
      LinkedIn."
-   - **Current model: a text dump, not a chat interview, plus a two-tier
-     social layer.** The conversational back-and-forth turned out to be
+   - **Current model: a text dump, not a chat interview, plus optional
+     social sources.** The conversational back-and-forth turned out to be
      more friction than signal — a single "paste anything about yourself"
      text box gets the same context in one round trip instead of 4-6. That
-     text dump is the universal (Tier A) context source for every user,
-     alongside the unchanged `public_profile`-only Facebook Login for name
-     + photo. See `functions/src/submitContext.ts`.
-   - **Tier A also includes Instagram, but via public web search, not
-     Graph API.** Instagram's own API needs a Professional (Business/
-     Creator) account plus a tester role on the Meta App — a non-starter
-     for most real users. Instead, the user just types their own handle,
-     and `importSocialContext.ts` runs a public web search for it via the
-     Parallel Search API (`functions/src/lib/parallel.ts`), folding
-     whatever's publicly indexed (bio mentions, post excerpts, press/blog
-     mentions) into the same extraction pipeline as the text dump. No
-     OAuth, no App Review, no Meta App Dashboard setup, works for any
-     handle — at the cost of only surfacing what a search engine has
-     actually indexed about it, rather than a guaranteed pull of the
-     user's own recent posts.
-   - **Tier B — real Facebook Graph API post scraping, tester accounts
-     only.** Meta's Development Mode lets any account with a role
-     (Admin/Developer/Tester) on the Meta App grant almost any permission
-     — including `user_posts` — with zero App Review, because Standard
-     Access permissions are usable immediately by role users. The catch:
-     this is a hard platform boundary, not a review-speed problem — it
-     works *only* for a short, manually-curated list of accounts (you +
-     specific demo accounts, added under App Roles), never for a random
-     attendee. Real attendees always fall back to Tier A. See
-     `functions/src/importSocialContext.ts` and the "Connect Facebook
-     posts" button in `OnboardingScreen.kt`.
-   - The original `public_profile`/`email`-only reasoning still holds for
-     Facebook: since 2018, Graph API gates anything beyond those two behind
-     Meta's App Review process for non-role users, which takes days to
-     weeks (and, for `user_posts` specifically, has an allowed-usage policy
-     — memory books, parental monitoring — that a matchmaking app doesn't
-     obviously fit anyway). Facebook Login for the general population stays
-     scoped to name/photo only; it is not a crawl.
+     text dump is the universal context source for every user. See
+     `functions/src/submitContext.ts`.
+   - **Instagram is via public web search, not Graph API.** Instagram's
+     own API needs a Professional (Business/Creator) account plus a tester
+     role on the Meta App — a non-starter for most real users. Instead,
+     the user just types their own handle, and `importSocialContext.ts`
+     runs a public web search for it via the Parallel Search API
+     (`functions/src/lib/parallel.ts`), folding whatever's publicly
+     indexed (bio mentions, post excerpts, press/blog mentions) into the
+     same extraction pipeline as the text dump. No OAuth, no App Review,
+     no Meta App Dashboard setup, works for any handle — at the cost of
+     only surfacing what a search engine has actually indexed about it,
+     rather than a guaranteed pull of the user's own recent posts.
+   - **LinkedIn is a PDF upload, not an API.** LinkedIn's partner API is
+     invite-only. The user exports their profile with LinkedIn's native
+     "Save to PDF" and `importSocialContext.ts` extracts the text. Same
+     pipeline, no OAuth.
 
 2. **1000×1000 pairwise agent negotiation** — combinatorially this is ~500k
    conversations, not feasible or necessary.
@@ -179,8 +161,8 @@ event scale, and directly usable on ourselves in the room in front of judges.
   vendor, to avoid gluing together separate DB/functions/push infra under
   time pressure.
 - **Web search: Parallel AI Search API** (`https://api.parallel.ai/v1/search`,
-  plain `x-api-key` auth) for the Instagram side of Tier A context — see
-  "Where the ambition breaks," item 1, and `functions/src/lib/parallel.ts`.
+  plain `x-api-key` auth) for Instagram context — see "Where the ambition
+  breaks," item 1, and `functions/src/lib/parallel.ts`.
   Chosen over standing up the `parallel-cli` tool (which needs an
   interactive device-code browser login) since the backend only needs a
   single stateless REST call per import, keyed with the API key as a
@@ -221,9 +203,8 @@ event scale, and directly usable on ourselves in the room in front of judges.
 
 1. **Fast twin creation** — a single text-dump box ("paste anything about
    yourself"), plus an optional Instagram handle (public web search, works
-   for anyone) and an optional Facebook connect button for the curated
-   tester-account tier (see "Where the ambition breaks," item 1). This is
-   the opening beat of the demo.
+   for anyone) and an optional LinkedIn PDF upload. This is the opening
+   beat of the demo.
 2. **Matching engine with a visible "why"** — not a score/percentage. The
    twin should explain its reasoning in plain language, e.g. "you're both
    stuck on the same devops problem" / "she's looking for a co-founder with
@@ -249,8 +230,7 @@ event scale, and directly usable on ourselves in the room in front of judges.
      character, leads into Sign In / Sign Up.
   2. Onboarding — the text-dump twin-creation screen, plus an optional
      Instagram handle field (public web search, works for anyone) and an
-     optional "Connect Facebook posts" button (tester accounts only — see
-     "Where the ambition breaks," item 1).
+     optional LinkedIn PDF upload.
   3. Home — idle/listening state (animated character, fully invisible BLE
      proximity underneath, no manual check-in UI) plus a live feed of
      recent negotiations.

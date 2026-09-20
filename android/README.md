@@ -13,15 +13,10 @@ full product context.
   twins via `checkin/CheckinRepository.kt`.
 - `onboarding/OnboardingScreen.kt` — twin-creation screen: a single
   "paste anything about yourself" text-dump box plus an optional Instagram
-  handle field, both submitted together by one "Build my twin" action
-  (Tier A — every user). The text dump goes to the `submitContext`
-  callable; the handle goes to `importSocialContext`'s `instagram`
-  provider, which runs a public web search for it via Parallel (no OAuth,
-  works for any handle — see root `CLAUDE.md`'s two-tier context model).
-  Also on this screen: a Facebook Login button scoped to `public_profile`
-  only (name + photo), and an optional "Connect Facebook posts" button
-  (also backed by `importSocialContext`, Tier B — real Graph API post
-  scraping, but only functional for tester/role accounts on the Meta App).
+  handle field and an optional LinkedIn PDF upload. The text dump goes to
+  the `submitContext` callable; Instagram and LinkedIn go to
+  `importSocialContext` (public web search via Parallel for Instagram, PDF
+  text extraction for LinkedIn — no OAuth for either).
 - `notifications/TwinMessagingService.kt` — FCM receiver that shows the
   match notification (photo, name, one specific reason, "Say hi" action).
 - `match/MatchScreen.kt` — the handoff screen: matched person + reason +
@@ -57,32 +52,25 @@ full product context.
 2. **Real BLE service UUID** — `ble/BleConstants.kt` has a placeholder
    128-bit UUID. Generate a real random one (`uuidgen`) and swap it in. All
    installs of the app must share the same UUID.
-3. **Facebook App ID / Client Token** — `res/values/strings.xml` has
-   placeholder values for `facebook_app_id` / `facebook_client_token`.
-   Replace with real values from developers.facebook.com. The name/photo
-   login flow is scoped to `public_profile` only (no email/friends/posting).
-   The "Connect Facebook posts" beta button additionally requires the
-   signed-in account to have a role (Admin/Developer/Tester) on the Meta
-   App — see root `CLAUDE.md`.
-3a. **Instagram — no app-side setup needed.** The Instagram field in
+3. **Instagram — no app-side setup needed.** The Instagram field in
    `OnboardingScreen.kt` is a plain public web search (via Parallel — see
    `functions/src/lib/parallel.ts`), not an OAuth flow, so there's no
    Meta App Dashboard product to configure and no client ID to ship in the
    app. Only the server side needs a `PARALLEL_API_KEY` secret — see
    `functions/README.md`.
-3b. **Firebase Auth sign-in providers** — in the Firebase console
+4. **Firebase Auth sign-in providers** — in the Firebase console
    (Authentication → Sign-in method): enable **Email/Password**, and
    enable **Google** (this also generates the "Web client ID" — copy it
    into `res/values/strings.xml`'s `google_web_client_id`, replacing the
    `TODO_...` placeholder). Without both of these, Sign In/Sign Up will
    fail — see `auth/AuthManager.kt`.
-4. **Gradle wrapper jar** — `gradle/wrapper/gradle-wrapper.properties` is
+5. **Gradle wrapper jar** — `gradle/wrapper/gradle-wrapper.properties` is
    present but the wrapper jar binary is not checked in from this scaffold.
    Run `gradle wrapper` once (with a local Gradle 8.7 install) to generate
    `gradle/wrapper/gradle-wrapper.jar` and `gradlew`/`gradlew.bat`, or open
    the project directly in Android Studio, which will bootstrap the wrapper
    for you.
-5. **Backend** — `submitContext`, `importSocialContext`, `onCheckin`,
+6. **Backend** — `submitContext`, `importSocialContext`, `onCheckin`,
    `negotiateTwins`, and `notifyMatch` all exist in `../functions/` and
    deploy to the same Firebase project. See `functions/README.md` for the
    secrets to set (`META_MODEL_API_KEY`, `PARALLEL_API_KEY`) before
@@ -92,9 +80,6 @@ full product context.
 
 ## Known scaffold gaps (fine for a hackathon prototype, flagged for later)
 
-- No image caching/upload pipeline for the Facebook profile photo — only
-  the Facebook userId is captured today; fetching name/photo via a
-  `GraphRequest` is a TODO in `OnboardingScreen.kt`.
 - `MainActivity.onNewIntent` doesn't yet thread a second notification tap
   (while the app is already open) into the already-composed screen state —
   noted as a TODO there. Fine for a demo where the app is normally opened

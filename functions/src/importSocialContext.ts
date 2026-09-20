@@ -1,24 +1,13 @@
 /**
  * importSocialContext — callable Cloud Function (v2).
  *
- * Tier B of the two-tier context model (see CLAUDE.md): folds richer,
- * per-provider social context into the same twins/{twinId} profile that
- * submitContext.ts (Tier A) writes. The two providers work very
- * differently:
- *
- *  - facebook: real Facebook post text via Graph API's `GET /me/posts`,
- *    using a user access token from classic Facebook Login requesting
- *    `user_posts` (client sends `accessToken`). `user_posts` is a Standard
- *    Access permission, so this ONLY works for accounts that have a role
- *    (Admin/Developer/Tester) on the Meta App while it's in Development
- *    Mode — any other account's token gets rejected by Graph API with a
- *    permission error. That's the expected outcome for real attendees,
- *    not a bug: this function treats it as a normal "not available for
- *    this account" result (`imported: false`) rather than a hard failure.
+ * Folds per-provider social context into the same twins/{twinId} profile
+ * that submitContext.ts writes from the text dump. The two providers work
+ * very differently:
  *
  *  - instagram: NOT Graph API. Instagram's own API requires a Professional
- *    (Business/Creator) account plus that same tester-role restriction on
- *    top — a non-starter for most real users. Instead, the client just
+ *    (Business/Creator) account plus a tester-role restriction on the Meta
+ *    App — a non-starter for most real users. Instead, the client just
  *    sends its own Instagram `instagramHandle`, and this runs a public web
  *    search for it via the Parallel Search API (see lib/parallel.ts),
  *    folding whatever's publicly indexed (bio mentions, post excerpts,
@@ -37,18 +26,17 @@ import { FieldValue } from "firebase-admin/firestore";
 import { db } from "./lib/admin";
 import { META_MODEL_API_KEY, PARALLEL_API_KEY } from "./lib/secrets";
 import { extractProfile, mergeFacts } from "./lib/extractProfile";
-import { GraphApiError, fetchFacebookPostText } from "./lib/graphApi";
 import { ParallelApiError, searchWeb } from "./lib/parallel";
 import { LinkedinPdfError, extractLinkedinPdfText } from "./lib/linkedinPdf";
 import type { TwinProfile } from "./types";
 
-type SocialProvider = "facebook" | "instagram" | "linkedin";
+type SocialProvider = "instagram" | "linkedin";
+/** Legacy `[[facebook]]` sections may still exist on older twin docs. */
+type SocialSectionKey = SocialProvider | "facebook";
 
 interface ImportSocialContextRequest {
   twinId: string;
   provider: SocialProvider;
-  /** Required when provider is "facebook" — the token from Facebook Login. */
-  accessToken?: string;
   /** Required when provider is "instagram" — the twin's own handle (leading "@" optional). */
   instagramHandle?: string;
   /** Required when provider is "linkedin" — base64 of the exported profile PDF. */
@@ -63,14 +51,15 @@ interface ImportSocialContextResponse {
   interests?: string[];
 }
 
-type SocialSections = Partial<Record<SocialProvider, string>>;
+type SocialSections = Partial<Record<SocialSectionKey, string>>;
 
 /**
  * `socialContext` on twins/{twinId} is one string holding both providers'
  * text, so importing Instagram doesn't wipe out a previously-imported
- * Facebook pull (or vice versa). Sections are marked with a plain
+ * LinkedIn pull (or vice versa). Sections are marked with a plain
  * `[[provider]]` line so they can be parsed back out and individually
- * replaced on re-import.
+ * replaced on re-import. `facebook` is still recognized so an old section
+ * isn't dropped when another provider is re-imported.
  */
 function parseSocialSections(existing: string | null | undefined): SocialSections {
   if (!existing) return {};
@@ -78,7 +67,7 @@ function parseSocialSections(existing: string | null | undefined): SocialSection
   for (const part of existing.split(/\n\n(?=\[\[(?:facebook|instagram|linkedin)\]\])/)) {
     const match = part.match(/^\[\[(facebook|instagram|linkedin)\]\]\n([\s\S]*)$/);
     if (match) {
-      sections[match[1] as SocialProvider] = match[2];
+      sections[match[1] as SocialSectionKey] = match[2];
     }
   }
   return sections;
@@ -100,21 +89,15 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
     enforceAppCheck: false,
   },
   async (request): Promise<ImportSocialContextResponse> => {
-    const { twinId, provider, accessToken, instagramHandle, pdfBase64 } = request.data ?? {};
+    const { twinId, provider, instagramHandle, pdfBase64 } = request.data ?? {};
 
     if (!twinId || typeof twinId !== "string") {
       throw new HttpsError("invalid-argument", "twinId is required.");
     }
-    if (provider !== "facebook" && provider !== "instagram" && provider !== "linkedin") {
+    if (provider !== "instagram" && provider !== "linkedin") {
       throw new HttpsError(
         "invalid-argument",
-        'provider must be "facebook", "instagram", or "linkedin".',
-      );
-    }
-    if (provider === "facebook" && (!accessToken || typeof accessToken !== "string")) {
-      throw new HttpsError(
-        "invalid-argument",
-        "accessToken is required for the facebook provider.",
+        'provider must be "instagram" or "linkedin".',
       );
     }
     const cleanedHandle = instagramHandle?.trim().replace(/^@/, "");
@@ -139,9 +122,7 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
 
     let contentChunks: string[];
     try {
-      if (provider === "facebook") {
-        contentChunks = await fetchFacebookPostText(accessToken as string);
-      } else if (provider === "instagram") {
+      if (provider === "instagram") {
         contentChunks = await searchWeb(
           PARALLEL_API_KEY.value(),
           `Find publicly available information about the Instagram account ` +
@@ -155,14 +136,10 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
         contentChunks = [text];
       }
     } catch (err) {
-      // Expected for the vast majority of real Facebook users — see file
-      // header. No tester/role on the Meta App means Graph API rejects the
-      // token with a permission error. That's a normal, reportable outcome
-      // here, not a crash. A Parallel search failure (rate limit, no
-      // credit, transient error) and an unreadable/oversized LinkedIn PDF
-      // are handled the same way for symmetry — either way the text dump
-      // still covers the twin's context.
-      if (err instanceof GraphApiError || err instanceof ParallelApiError || err instanceof LinkedinPdfError) {
+      // A Parallel search failure (rate limit, no credit, transient error)
+      // and an unreadable/oversized LinkedIn PDF are handled the same way
+      // — either way the text dump still covers the twin's context.
+      if (err instanceof ParallelApiError || err instanceof LinkedinPdfError) {
         console.warn(
           `Social import unavailable for twin ${twinId} (${provider}): ${err.message}`,
         );
@@ -170,20 +147,16 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
           imported: false,
           itemCount: 0,
           message:
-            provider === "facebook"
-              ? "This account isn't enabled for Facebook post import yet (it needs a " +
-                "tester role on the Meta app) — no worries, your text dump is still " +
-                "used for your twin's context."
-              : provider === "instagram"
-                ? "Couldn't search the web for that Instagram handle right now — no " +
-                  "worries, your text dump is still used for your twin's context."
-                : `${err.message} No worries, your text dump is still used for your twin's context.`,
+            provider === "instagram"
+              ? "Couldn't search the web for that Instagram handle right now — no " +
+                "worries, your text dump is still used for your twin's context."
+              : `${err.message} No worries, your text dump is still used for your twin's context.`,
         };
       }
       throw new HttpsError(
         "internal",
         `${
-          provider === "facebook" ? "Graph API" : provider === "instagram" ? "Parallel search" : "LinkedIn PDF"
+          provider === "instagram" ? "Parallel search" : "LinkedIn PDF"
         } request failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
@@ -193,11 +166,9 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
         imported: true,
         itemCount: 0,
         message:
-          provider === "facebook"
-            ? "Connected, but no recent post text was found to import."
-            : provider === "instagram"
-              ? "Connected, but no public web results were found for that handle."
-              : "The PDF was read, but no usable text was found in it.",
+          provider === "instagram"
+            ? "Connected, but no public web results were found for that handle."
+            : "The PDF was read, but no usable text was found in it.",
       };
     }
 
@@ -254,15 +225,11 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
       imported: true,
       itemCount: contentChunks.length,
       message:
-        provider === "facebook"
-          ? `Pulled ${contentChunks.length} recent Facebook post${
+        provider === "instagram"
+          ? `Found ${contentChunks.length} public web result${
               contentChunks.length === 1 ? "" : "s"
-            } into your twin's context.`
-          : provider === "instagram"
-            ? `Found ${contentChunks.length} public web result${
-                contentChunks.length === 1 ? "" : "s"
-              } about your Instagram and added them to your twin's context.`
-            : "Read your LinkedIn PDF and added it to your twin's context.",
+            } about your Instagram and added them to your twin's context.`
+          : "Read your LinkedIn PDF and added it to your twin's context.",
       summary: extracted.summary,
       interests: extracted.interests,
     };

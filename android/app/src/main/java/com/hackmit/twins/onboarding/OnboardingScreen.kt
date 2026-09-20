@@ -62,15 +62,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.ContextCompat
-import com.facebook.CallbackManager
-import com.facebook.FacebookCallback
-import com.facebook.FacebookException
-import com.facebook.login.LoginResult
-import com.facebook.login.widget.LoginButton
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
 import com.hackmit.twins.ui.ListeningAvatar
@@ -88,11 +82,10 @@ private const val TOTAL_STEPS = 3
  * Twin-creation flow — three steps, mirroring the product's step-counter/
  * dot-pagination pattern used elsewhere for this kind of guided setup:
  *
- * 1. "Connect your context" — four connect points, each independent and
- *    optional: a free-text/voice dump (Tier A, submitContext.ts), an
- *    Instagram handle (Tier A via public web search), a LinkedIn PDF
- *    upload, and Facebook Login for name+photo. See CLAUDE.md's two-tier
- *    context model. Each one writes to the backend the moment it succeeds
+ * 1. "Connect your context" — three connect points, each independent and
+ *    optional: a free-text/voice dump (submitContext.ts), an Instagram
+ *    handle (public web search via importSocialContext.ts), and a LinkedIn
+ *    PDF upload. Each one writes to the backend the moment it succeeds
  *    (tapping its circle), not batched behind a single submit — "Continue"
  *    just moves to the next step.
  * 2. "Set your boundaries" — what the twin is/isn't allowed to bring up
@@ -128,11 +121,9 @@ fun OnboardingScreen(
     var contextConnected by remember { mutableStateOf(false) }
     var instagramConnected by remember { mutableStateOf(false) }
     var linkedinConnected by remember { mutableStateOf(false) }
-    var facebookConnected by remember { mutableStateOf(false) }
 
     var showContextDialog by remember { mutableStateOf(false) }
     var showInstagramDialog by remember { mutableStateOf(false) }
-    var showFacebookDialog by remember { mutableStateOf(false) }
 
     var textDump by remember { mutableStateOf("") }
     var isSubmittingContext by remember { mutableStateOf(false) }
@@ -226,8 +217,8 @@ fun OnboardingScreen(
     // only partner access) — instead the client reads whatever PDF the user
     // picks (meant to be LinkedIn's own "Save to PDF" profile export),
     // base64-encodes it, and folds it into the same importSocialContext
-    // pipeline as Facebook/Instagram (see importSocialContext.ts's
-    // "linkedin" provider + lib/linkedinPdf.ts for server-side extraction).
+    // pipeline as Instagram (see importSocialContext.ts's "linkedin"
+    // provider + lib/linkedinPdf.ts for server-side extraction).
     // No dialog needed — tapping the circle goes straight to the file picker.
     val linkedinPdfPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent(),
@@ -261,9 +252,6 @@ fun OnboardingScreen(
             }
         }
     }
-
-    var fbName by remember { mutableStateOf<String?>(null) }
-    val nameLoginCallbackManager = remember { CallbackManager.Factory.create() }
 
     // ---- Step 2: boundaries ------------------------------------------
 
@@ -387,12 +375,10 @@ fun OnboardingScreen(
                         contextConnected = contextConnected,
                         instagramConnected = instagramConnected,
                         linkedinConnected = linkedinConnected,
-                        facebookConnected = facebookConnected,
                         isImportingLinkedin = isImportingLinkedin,
                         onTapContext = { showContextDialog = true },
                         onTapInstagram = { showInstagramDialog = true },
                         onTapLinkedin = { linkedinPdfPicker.launch("application/pdf") },
-                        onTapFacebook = { showFacebookDialog = true },
                     )
                     1 -> BoundariesStep(
                         careerOn = careerOn,
@@ -582,44 +568,6 @@ fun OnboardingScreen(
         }
     }
 
-    if (showFacebookDialog) {
-        ConnectDialog(onDismiss = { showFacebookDialog = false }, title = "Facebook") {
-            Text(
-                text = fbName?.let { "Connected." }
-                    ?: "public_profile only — just your name and photo, nothing else.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = KlickColors.TextSecondary,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            // Wrapped in AndroidView since the official SDK's LoginButton is
-            // a plain Android View, not a Compose component.
-            AndroidView(
-                factory = { ctx ->
-                    LoginButton(ctx).apply {
-                        setPermissions("public_profile")
-                        registerCallback(
-                            nameLoginCallbackManager,
-                            object : FacebookCallback<LoginResult> {
-                                override fun onSuccess(result: LoginResult) {
-                                    fbName = result.accessToken.userId
-                                    facebookConnected = true
-                                    // TODO: fetch /me?fields=name,picture via a
-                                    // GraphRequest and store on the twin profile
-                                    // doc alongside twinId.
-                                }
-
-                                override fun onCancel() {}
-
-                                override fun onError(error: FacebookException) {}
-                            },
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-
     if (showBuilding) {
         TwinBuildingScreen(
             onComplete = {
@@ -635,12 +583,10 @@ private fun ConnectStep(
     contextConnected: Boolean,
     instagramConnected: Boolean,
     linkedinConnected: Boolean,
-    facebookConnected: Boolean,
     isImportingLinkedin: Boolean,
     onTapContext: () -> Unit,
     onTapInstagram: () -> Unit,
     onTapLinkedin: () -> Unit,
-    onTapFacebook: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
         RiseIn(index = 0) {
@@ -657,9 +603,6 @@ private fun ConnectStep(
                 loading = isImportingLinkedin,
                 onClick = onTapLinkedin,
             )
-        }
-        RiseIn(index = 3) {
-            ConnectCircle(label = "FB", caption = "Photo", connected = facebookConnected, onClick = onTapFacebook)
         }
     }
 }

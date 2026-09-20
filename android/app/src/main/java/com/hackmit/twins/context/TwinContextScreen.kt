@@ -1,5 +1,8 @@
 package com.hackmit.twins.context
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.net.Uri
 import android.util.Base64
 import android.view.WindowManager
@@ -35,6 +38,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -59,21 +63,31 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogWindowProvider
-import com.facebook.CallbackManager
-import com.facebook.FacebookCallback
-import com.facebook.FacebookException
-import com.facebook.login.LoginResult
-import com.facebook.login.widget.LoginButton
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
 import com.hackmit.twins.ui.ListeningAvatar
 import com.hackmit.twins.ui.cute.MascotBubble
 import com.hackmit.twins.ui.theme.KlickColors
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+
+/**
+ * Pasted into ChatGPT / Claude / whatever already knows you. The reply is
+ * meant to drop straight into the text-dump box below — specific enough
+ * that extractProfile.ts can pull real facts, not a polished bio.
+ */
+private const val CONTEXT_DUMP_PROMPT =
+    "I'm going to paste your reply into a networking app that matches me with people nearby. Write a first-person dump about me — not a polished bio.\n\n" +
+        "Cover:\n" +
+        "- who I am and my background\n" +
+        "- what I'm working on right now (projects, stuck points, tools)\n" +
+        "- skills and interests that aren't obvious from a resume\n" +
+        "- what I actually want from people I meet (collaborator, advice, friends — be specific)\n" +
+        "- a few concrete details or anecdotes that make me distinct\n\n" +
+        "Write it as me talking to a friend. Use what you already know about me from this chat. If you're missing something important, ask first, then write the dump. Don't invent facts."
 
 /**
  * "Everything it knows" — the transparency screen: every categorized fact
@@ -105,7 +119,6 @@ fun TwinContextScreen(twinId: String, onBackToRecent: () -> Unit) {
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var showContextDialog by remember { mutableStateOf(false) }
     var showInstagramDialog by remember { mutableStateOf(false) }
-    var showFacebookDialog by remember { mutableStateOf(false) }
 
     Scaffold(containerColor = KlickColors.PageBackground) { padding ->
         Column(
@@ -225,12 +238,6 @@ fun TwinContextScreen(twinId: String, onBackToRecent: () -> Unit) {
                     onClick = { showInstagramDialog = true },
                 )
                 LinkedinConnectCircle(twinId = twinId, connected = snapshot.connections.linkedin)
-                ConnectStatusCircle(
-                    label = "FB",
-                    caption = "Facebook",
-                    connected = snapshot.connections.facebook,
-                    onClick = { showFacebookDialog = true },
-                )
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -264,9 +271,6 @@ fun TwinContextScreen(twinId: String, onBackToRecent: () -> Unit) {
     }
     if (showInstagramDialog) {
         InstagramConnectDialog(twinId = twinId, onDismiss = { showInstagramDialog = false })
-    }
-    if (showFacebookDialog) {
-        FacebookConnectDialog(onDismiss = { showFacebookDialog = false })
     }
 }
 
@@ -472,7 +476,16 @@ private fun ContextConnectDialog(twinId: String, onDismiss: () -> Unit) {
     var textDump by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var copiedPrompt by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    LaunchedEffect(copiedPrompt) {
+        if (copiedPrompt) {
+            delay(2000)
+            copiedPrompt = false
+        }
+    }
 
     ConnectDialogShell(
         title = "Tell us about yourself",
@@ -519,10 +532,27 @@ private fun ContextConnectDialog(twinId: String, onDismiss: () -> Unit) {
         },
     ) {
         Text(
-            text = "Paste anything — a bio, notes on what you're working on, what you're hoping to get out of this weekend.",
+            text = "Tell us about yourself, or copy this prompt.",
             style = MaterialTheme.typography.bodyMedium,
             color = KlickColors.TextSecondary,
         )
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Context dump prompt", CONTEXT_DUMP_PROMPT))
+                copiedPrompt = true
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, KlickColors.Border),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = KlickColors.TextPrimary),
+        ) {
+            Text(
+                text = if (copiedPrompt) "Copied" else "Copy prompt",
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedTextField(
             value = textDump,
@@ -662,43 +692,4 @@ private fun LinkedinConnectCircle(twinId: String, connected: Boolean) {
         loading = isImporting,
         onClick = { if (!isImporting) picker.launch("application/pdf") },
     )
-}
-
-@Composable
-private fun FacebookConnectDialog(onDismiss: () -> Unit) {
-    val callbackManager = remember { CallbackManager.Factory.create() }
-    var connectedName by remember { mutableStateOf<String?>(null) }
-
-    ConnectDialogShell(title = "Facebook", onDismiss = onDismiss) {
-        Text(
-            text = connectedName?.let { "Connected." }
-                ?: "public_profile only — just your name and photo, nothing else.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = KlickColors.TextSecondary,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        AndroidView(
-            factory = { ctx ->
-                LoginButton(ctx).apply {
-                    setPermissions("public_profile")
-                    registerCallback(
-                        callbackManager,
-                        object : FacebookCallback<LoginResult> {
-                            override fun onSuccess(result: LoginResult) {
-                                connectedName = result.accessToken.userId
-                                // TODO: same gap as OnboardingScreen.kt — fetch
-                                // /me?fields=name,picture via a GraphRequest and
-                                // persist onto the twin profile doc.
-                            }
-
-                            override fun onCancel() {}
-
-                            override fun onError(error: FacebookException) {}
-                        },
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
 }

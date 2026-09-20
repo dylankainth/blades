@@ -11,9 +11,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // Facebook SDK is on mavenCentral now, but keep jitpack as a fallback
-        // in case a transitive dependency needs it.
-        maven("https://jitpack.io")
     }
 }
 

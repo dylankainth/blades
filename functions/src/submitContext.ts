@@ -8,10 +8,9 @@
  * to twins/{twinId}. No conversation state, no multi-turn transcript, no
  * "wrap up the interview" signal to manage — one call in, one profile out.
  *
- * This is Tier A of the two-tier context model (see CLAUDE.md): it works
- * for every user, with zero Meta Graph API dependency. Tier B
- * (importSocialContext.ts) is a separate, optional, tester-only path that
- * folds scraped Instagram/Facebook text into the same profile.
+ * This is the universal context path for every user. importSocialContext.ts
+ * is a separate, optional path that folds Instagram web-search results and
+ * LinkedIn PDF text into the same profile.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
@@ -66,9 +65,9 @@ export const submitContext = onCall<SubmitContextRequest>(
       submissionRef.get(),
     ]);
 
-    // A prior importSocialContext call (Tier B) may have already stashed
-    // scraped social text on this twin — fold it back in on re-submission
-    // so pasting an updated dump doesn't silently wipe out that signal.
+    // A prior importSocialContext call may have already stashed scraped
+    // social text on this twin — fold it back in on re-submission so
+    // pasting an updated dump doesn't silently wipe out that signal.
     const existingSocialContext = twinSnap.exists
       ? ((twinSnap.data() as TwinProfile).socialContext ?? null)
       : null;

@@ -21,16 +21,12 @@ data class TwinFact(
  * Which optional context sources have contributed something — derived from
  * the same `[[provider]]\n...` markers importSocialContext.ts writes into
  * socialContext (see its parseSocialSections/serializeSocialSections), so
- * this never drifts from what the server considers "connected". Facebook
- * has no such marker today (its onboarding flow only sets name/photo, see
- * OnboardingScreen.kt's TODO), so it falls back to "a photoUrl exists" as
- * a best-effort signal.
+ * this never drifts from what the server considers "connected".
  */
 data class TwinConnections(
     val context: Boolean = false,
     val instagram: Boolean = false,
     val linkedin: Boolean = false,
-    val facebook: Boolean = false,
 )
 
 data class TwinContextSnapshot(
@@ -74,7 +70,6 @@ object TwinContextRepository {
                     context = !doc.getString("rawContext").isNullOrBlank(),
                     instagram = socialContext?.contains("[[instagram]]") == true,
                     linkedin = socialContext?.contains("[[linkedin]]") == true,
-                    facebook = socialContext?.contains("[[facebook]]") == true || doc.getString("photoUrl") != null,
                 )
 
                 onUpdate(TwinContextSnapshot(facts = facts, interests = interests, connections = connections))

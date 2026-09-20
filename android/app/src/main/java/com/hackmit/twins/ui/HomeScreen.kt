@@ -108,7 +108,7 @@ fun HomeScreen(onShowRecent: () -> Unit, onLogout: () -> Unit) {
                     targetState = splashIndex,
                     transitionSpec = { fadeIn() togetherWith fadeOut() },
                     label = "splash",
-                    modifier = Modifier.padding(top = 28.dp),
+                    modifier = Modifier.padding(top = 44.dp),
                 ) { index ->
                     Text(
                         text = SPLASH_MESSAGES[index],

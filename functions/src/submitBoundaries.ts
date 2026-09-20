@@ -10,7 +10,7 @@
  *
  * Also flips onboardingComplete — this is step 2 of 3 in the onboarding
  * flow (see OnboardingScreen.kt), reached regardless of which/whether any
- * optional Tier A/B sources got connected in step 1. Setting it here (not
+ * optional sources got connected in step 1. Setting it here (not
  * in submitContext) guarantees a twin that connected zero sources still
  * finishes onboarding once they get this far, same as the old flow's single
  * "Build my twin" submit always did.

@@ -60,17 +60,15 @@ export interface TwinProfile {
   facts?: TwinFact[];
   /**
    * The user's own pasted "tell us about yourself" text dump — kept
-   * verbatim for provenance/debugging. This is the primary (Tier A) source
+   * verbatim for provenance/debugging. This is the primary source
    * `summary`/`interests` are extracted from. See submitContext.ts.
    */
   rawContext?: string | null;
   /**
-   * Aggregated caption/post text pulled from Instagram/Facebook via
-   * Graph API (Tier B — tester/role accounts only, see
-   * importSocialContext.ts). Kept separate from `rawContext` since it's
-   * machine-scraped rather than user-authored; merged alongside it when
-   * re-running extraction. Null/absent for the vast majority of users who
-   * aren't on the Meta App's tester list.
+   * Aggregated social text pulled by importSocialContext.ts (Instagram
+   * web-search results and/or LinkedIn PDF text). Kept separate from
+   * `rawContext` since it's machine-scraped rather than user-authored;
+   * merged alongside it when re-running extraction.
    */
   socialContext?: string | null;
   /** FCM device token(s) to push notifications to. */

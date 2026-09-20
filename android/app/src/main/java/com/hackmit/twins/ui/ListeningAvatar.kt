@@ -225,7 +225,9 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier, onDark: Boolean = f
         val eyeH = s * 0.22f
         val eyeGap = s * 0.16f
         val eyeShift = s * 0.05f
-        val eyeY = center.y - eyeH / 2 * blinkScale
+        // Sit a touch above center so a downward glance still clears the mouth.
+        val eyeLift = s * 0.05f
+        val eyeY = center.y - eyeLift - eyeH / 2 * blinkScale
         val mouthH = s * 0.045f
 
         if (delighted) {
@@ -241,7 +243,7 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier, onDark: Boolean = f
                     startAngle = 180f,
                     sweepAngle = 180f,
                     useCenter = false,
-                    topLeft = Offset(eyeCenterX - arcW / 2, center.y - arcH * 0.75f),
+                    topLeft = Offset(eyeCenterX - arcW / 2, center.y - eyeLift - arcH * 0.75f),
                     size = Size(arcW, arcH),
                     style = stroke,
                 )
