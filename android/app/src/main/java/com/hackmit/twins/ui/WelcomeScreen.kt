@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.hackmit.twins.ui.theme.KlickColors
 import com.hackmit.twins.ui.theme.SpaceGroteskFamily
+import com.hackmit.twins.ui.theme.StatusBarStyle
 
 /**
  * App-open screen. Same structural idea as the reference design (~2/3
@@ -42,6 +43,10 @@ fun WelcomeScreen(
     onGoToSignIn: () -> Unit,
     onGoToSignUp: () -> Unit,
 ) {
+    // The hero starts dark, so the status bar joins it instead of sitting
+    // above it as a pale band.
+    StatusBarStyle(color = KlickColors.TextSecondary, darkIcons = false)
+
     Column(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier

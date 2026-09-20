@@ -11,9 +11,17 @@ full product context.
   other twins' advertisements on the same service UUID. On detection,
   writes a checkin to `checkins/{locationId}/people/{twinId}` for both
   twins via `checkin/CheckinRepository.kt`.
-- `onboarding/OnboardingScreen.kt` — conversational twin-creation chat UI,
-  backed by the `onboardingChat` Firebase Functions callable, plus a
-  Facebook Login button scoped to `public_profile` only.
+- `onboarding/OnboardingScreen.kt` — twin-creation screen: a single
+  "paste anything about yourself" text-dump box plus an optional Instagram
+  handle field, both submitted together by one "Build my twin" action
+  (Tier A — every user). The text dump goes to the `submitContext`
+  callable; the handle goes to `importSocialContext`'s `instagram`
+  provider, which runs a public web search for it via Parallel (no OAuth,
+  works for any handle — see root `CLAUDE.md`'s two-tier context model).
+  Also on this screen: a Facebook Login button scoped to `public_profile`
+  only (name + photo), and an optional "Connect Facebook posts" button
+  (also backed by `importSocialContext`, Tier B — real Graph API post
+  scraping, but only functional for tester/role accounts on the Meta App).
 - `notifications/TwinMessagingService.kt` — FCM receiver that shows the
   match notification (photo, name, one specific reason, "Say hi" action).
 - `match/MatchScreen.kt` — the handoff screen: matched person + reason +
@@ -51,8 +59,17 @@ full product context.
    installs of the app must share the same UUID.
 3. **Facebook App ID / Client Token** — `res/values/strings.xml` has
    placeholder values for `facebook_app_id` / `facebook_client_token`.
-   Replace with real values from developers.facebook.com. Login is scoped
-   to `public_profile` only (name + photo, no email/friends/posting).
+   Replace with real values from developers.facebook.com. The name/photo
+   login flow is scoped to `public_profile` only (no email/friends/posting).
+   The "Connect Facebook posts" beta button additionally requires the
+   signed-in account to have a role (Admin/Developer/Tester) on the Meta
+   App — see root `CLAUDE.md`.
+3a. **Instagram — no app-side setup needed.** The Instagram field in
+   `OnboardingScreen.kt` is a plain public web search (via Parallel — see
+   `functions/src/lib/parallel.ts`), not an OAuth flow, so there's no
+   Meta App Dashboard product to configure and no client ID to ship in the
+   app. Only the server side needs a `PARALLEL_API_KEY` secret — see
+   `functions/README.md`.
 3b. **Firebase Auth sign-in providers** — in the Firebase console
    (Authentication → Sign-in method): enable **Email/Password**, and
    enable **Google** (this also generates the "Web client ID" — copy it
@@ -65,13 +82,13 @@ full product context.
    `gradle/wrapper/gradle-wrapper.jar` and `gradlew`/`gradlew.bat`, or open
    the project directly in Android Studio, which will bootstrap the wrapper
    for you.
-5. **Backend** — `onboardingChat`, `onCheckin`, `negotiateTwins`, and
-   `notifyMatch` all exist in `../functions/` and deploy to the same
-   Firebase project. See `functions/README.md` for the one remaining
-   secret to set (`META_MODEL_API_KEY`) before they'll actually run.
-   `TwinMessagingService.onNewToken` still has a TODO to persist the FCM
-   token against the twin's Firestore doc — wire that up so `notifyMatch`
-   has somewhere to send pushes.
+5. **Backend** — `submitContext`, `importSocialContext`, `onCheckin`,
+   `negotiateTwins`, and `notifyMatch` all exist in `../functions/` and
+   deploy to the same Firebase project. See `functions/README.md` for the
+   secrets to set (`META_MODEL_API_KEY`, `PARALLEL_API_KEY`) before
+   they'll actually run. `TwinMessagingService.onNewToken` still has a TODO
+   to persist the FCM token against the twin's Firestore doc — wire that up
+   so `notifyMatch` has somewhere to send pushes.
 
 ## Known scaffold gaps (fine for a hackathon prototype, flagged for later)
 

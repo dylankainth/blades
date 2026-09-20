@@ -29,6 +29,9 @@ object AuthManager {
     /** Non-suspending accessor for call sites that know sign-in already happened. */
     fun currentTwinIdOrNull(): String? = auth.currentUser?.uid
 
+    /** Drops the Firebase session so Welcome can offer a different account. */
+    fun signOut() = auth.signOut()
+
     suspend fun signInWithEmail(email: String, password: String): String {
         val result = auth.signInWithEmailAndPassword(email, password).await()
         return requireNotNull(result.user?.uid) { "Sign-in returned no user" }
@@ -46,9 +49,9 @@ object AuthManager {
     }
 
     /**
-     * Reads twins/{twinId}.onboardingComplete — the flag onboardingChat.ts
-     * writes once the onboarding interview actually finishes (see
-     * functions/src/onboardingChat.ts). Used to decide, right after
+     * Reads twins/{twinId}.onboardingComplete — the flag submitContext.ts
+     * writes once the text-dump context submission succeeds (see
+     * functions/src/submitContext.ts). Used to decide, right after
      * sign-in/sign-up, whether to route to Home or to Onboarding.
      */
     suspend fun hasCompletedOnboarding(twinId: String): Boolean {

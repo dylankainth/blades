@@ -28,16 +28,18 @@ object CheckinRepository {
      * derived from both twinIds (see the comment there) rather than a real
      * venue id.
      */
-    fun recordCheckin(locationId: String, twinId: String) {
+    fun recordCheckin(locationId: String, twinId: String, otherTwinId: String? = null) {
         db.collection("checkins")
             .document(locationId)
             .collection("people")
             .document(twinId)
             .set(
-                mapOf(
-                    "twinId" to twinId,
-                    "lastSeenAt" to FieldValue.serverTimestamp(),
-                ),
+                buildMap {
+                    put("twinId", twinId)
+                    put("lastSeenAt", FieldValue.serverTimestamp())
+                    // Who we just detected, when known (BLE). See onCheckin.ts.
+                    if (otherTwinId != null) put("otherTwinId", otherTwinId)
+                },
                 // Merge so repeated detections just bump lastSeenAt instead
                 // of erroring/overwriting other fields a Cloud Function adds.
                 com.google.firebase.firestore.SetOptions.merge(),

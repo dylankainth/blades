@@ -1,0 +1,7 @@
+dependencies:
+  idf: ">=5.3"
+  # Official Espressif BSP for the BOX-3: brings LCD (ST7789 / ILI9341-class,
+  # auto-detected), touch (TT21100 / GT911), esp_lvgl_port, buttons, ICM42670 IMU.
+  espressif/esp-box-3: "^3.2.0"
+  # Pinned to the LVGL release the BSP publishes BOX-3 benchmarks for.
+  lvgl/lvgl: "~9.4.0"
