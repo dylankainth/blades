@@ -4,6 +4,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,7 +73,7 @@ data class ChatMessage(val fromUser: Boolean, val text: String)
  * make the twin's card look like a real person to match against, not as an
  * auth mechanism (auth is anonymous Firebase auth, see AuthManager.kt).
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun OnboardingScreen(
     twinId: String,
@@ -96,7 +100,8 @@ fun OnboardingScreen(
     val listState = rememberLazyListState()
 
     LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
+        // +1: item 0 is the Facebook card, so message i lives at index i + 1.
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size)
     }
 
     fun sendMessage(text: String) {
@@ -148,52 +153,12 @@ fun OnboardingScreen(
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        val keyboardOpen = WindowInsets.isImeVisible
+        LaunchedEffect(keyboardOpen) {
+            if (keyboardOpen && messages.isNotEmpty()) listState.animateScrollToItem(messages.size)
+        }
 
-            // Facebook Login: public_profile only, for name + photo on the
-            // twin's card. Wrapped in AndroidView since the official SDK's
-            // LoginButton is a plain Android View, not a Compose component.
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = KlickColors.CardSurface),
-                border = BorderStroke(1.dp, KlickColors.Border),
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = fbName?.let { "Signed in as $it" }
-                            ?: "Optional: add your name + photo via Facebook",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = KlickColors.TextSecondary,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AndroidView(
-                        factory = { ctx ->
-                            LoginButton(ctx).apply {
-                                // public_profile ONLY — no email, no friends,
-                                // no posting permissions. See CLAUDE.md.
-                                setPermissions("public_profile")
-                                registerCallback(
-                                    callbackManager,
-                                    object : FacebookCallback<LoginResult> {
-                                        override fun onSuccess(result: LoginResult) {
-                                            fbName = result.accessToken.userId
-                                            // TODO: fetch /me?fields=name,picture via a
-                                            // GraphRequest and store on the twin profile
-                                            // doc alongside twinId.
-                                        }
-
-                                        override fun onCancel() {}
-
-                                        override fun onError(error: FacebookException) {}
-                                    },
-                                )
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+        Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
 
             LazyColumn(
                 state = listState,
@@ -201,6 +166,55 @@ fun OnboardingScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
             ) {
+                // First item, not pinned above the list: pinned, it ate most of
+                // the height left once the keyboard opened and the chat
+                // collapsed to nothing. Here it just scrolls away.
+                item(key = "facebook-card") {
+                    // Facebook Login: public_profile only, for name + photo on the
+                    // twin's card. Wrapped in AndroidView since the official SDK's
+                    // LoginButton is a plain Android View, not a Compose component.
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = KlickColors.CardSurface),
+                        border = BorderStroke(1.dp, KlickColors.Border),
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                text = fbName?.let { "Signed in as $it" }
+                                    ?: "Optional: add your name + photo via Facebook",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KlickColors.TextSecondary,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            AndroidView(
+                                factory = { ctx ->
+                                    LoginButton(ctx).apply {
+                                        // public_profile ONLY — no email, no friends,
+                                        // no posting permissions. See CLAUDE.md.
+                                        setPermissions("public_profile")
+                                        registerCallback(
+                                            callbackManager,
+                                            object : FacebookCallback<LoginResult> {
+                                                override fun onSuccess(result: LoginResult) {
+                                                    fbName = result.accessToken.userId
+                                                    // TODO: fetch /me?fields=name,picture via a
+                                                    // GraphRequest and store on the twin profile
+                                                    // doc alongside twinId.
+                                                }
+
+                                                override fun onCancel() {}
+
+                                                override fun onError(error: FacebookException) {}
+                                            },
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
                 items(messages) { message -> ChatBubble(message) }
             }
 
@@ -211,7 +225,9 @@ fun OnboardingScreen(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedTextField(

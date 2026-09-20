@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hackmit.twins.badge.BadgeMenu
+import com.hackmit.twins.badge.PairBadgeButton
 import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.delay
 
@@ -118,6 +119,7 @@ fun HomeScreen(onShowRecent: () -> Unit) {
                         textAlign = TextAlign.Center,
                     )
                 }
+                PairBadgeButton(modifier = Modifier.padding(top = 28.dp))
             }
 
             Column(
