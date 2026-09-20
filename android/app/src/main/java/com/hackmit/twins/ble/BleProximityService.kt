@@ -37,10 +37,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 
@@ -85,10 +85,18 @@ class BleProximityService : Service() {
     // limited separately: see markSeen() in the companion object.
     private val resolvedTokens = ConcurrentHashMap<String, String>()
 
-    // Guards the radio restarts below: the periodic scan restart and a radar
-    // mode change run on different coroutines.
-    private val radioLock = Any()
+    // Guards the radio restarts below: the periodic scan restart, a radar
+    // mode change and a retry after a failed start run on different
+    // coroutines. A Mutex rather than synchronized because a restart waits
+    // between stop and start. Everything under "radio state" is only touched
+    // while holding it.
+    private val radioMutex = Mutex()
+
+    // Radio state.
     private var radioStarted = false
+    private var advertisingFast = false
+    private var scanningFast = false
+    private var scanBudget = ScanStartBudget()
 
     override fun onCreate() {
         super.onCreate()
@@ -110,9 +118,10 @@ class BleProximityService : Service() {
         myToken = generateToken()
         serviceScope.launch {
             BleSessionRepository.registerToken(myToken, twinId)
-            synchronized(radioLock) {
-                startAdvertising(myToken)
-                startScanning()
+            radioMutex.withLock {
+                val fast = radarMode.value
+                startAdvertising(myToken, fast)
+                startScanning(fast)
                 radioStarted = true
             }
             // Android quietly downgrades a long-running scan to opportunistic
@@ -120,24 +129,21 @@ class BleProximityService : Service() {
             // arriving. Restarting before that deadline keeps detection live.
             while (isActive) {
                 delay(SCAN_RESTART_MS)
-                synchronized(radioLock) {
-                    stopScanning()
-                    startScanning()
-                }
+                radioMutex.withLock { restartScanning() }
             }
         }
         // The radar turns a person's heading into a bearing, which needs many
         // readings per second. Both radios switch to their fastest setting
-        // while it is open and back when it closes. drop(1): the start above
-        // already read the current value.
+        // while it is open and back when it closes. Each radio is only
+        // restarted if the mode it runs in is no longer the wanted one, so
+        // opening and closing the radar quickly settles into no restart.
         serviceScope.launch {
-            radarMode.drop(1).collect {
-                synchronized(radioLock) {
-                    if (!radioStarted) return@synchronized
-                    stopScanning()
-                    startScanning()
-                    stopAdvertising()
-                    startAdvertising(myToken)
+            radarMode.collect {
+                delay(RADAR_MODE_SETTLE_MS)
+                radioMutex.withLock {
+                    if (!radioStarted) return@withLock
+                    if (radarMode.value != advertisingFast) restartAdvertising()
+                    if (radarMode.value != scanningFast) restartScanning()
                 }
             }
         }
@@ -155,10 +161,11 @@ class BleProximityService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // Cancel first: a restart waiting between its stop and its start must
+        // not bring a radio back up after the stops below.
+        serviceScope.cancel()
         stopAdvertising()
         stopScanning()
-        serviceScope.cancel()
-        _nearbyRssi.value = emptyMap()
     }
 
     /**
@@ -182,7 +189,17 @@ class BleProximityService : Service() {
 
     // ---- Advertising ----------------------------------------------------
 
-    private fun startAdvertising(token: String) {
+    /** Call with [radioMutex] held. */
+    private suspend fun restartAdvertising() {
+        stopAdvertising()
+        // stopAdvertising returns before the stack has torn the advert down;
+        // starting again straight away can fail with ALREADY_STARTED.
+        delay(RADIO_SETTLE_MS)
+        startAdvertising(myToken, radarMode.value)
+    }
+
+    private fun startAdvertising(token: String, fast: Boolean) {
+        advertisingFast = fast
         val adv = advertiser ?: run {
             Log.w(TAG, "No BLE advertiser available on this device; cannot advertise")
             return
@@ -190,7 +207,7 @@ class BleProximityService : Service() {
 
         val settings = AdvertiseSettings.Builder()
             .setAdvertiseMode(
-                if (radarMode.value) {
+                if (fast) {
                     AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY
                 } else {
                     AdvertiseSettings.ADVERTISE_MODE_BALANCED
@@ -233,12 +250,35 @@ class BleProximityService : Service() {
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartFailure(errorCode: Int) {
             Log.e(TAG, "BLE advertise failed to start, errorCode=$errorCode")
+            if (errorCode == ADVERTISE_FAILED_ALREADY_STARTED) return
+            // Not advertising means nobody can find this phone, so try again.
+            serviceScope.launch {
+                delay(RADIO_RETRY_MS)
+                radioMutex.withLock { restartAdvertising() }
+            }
         }
     }
 
     // ---- Scanning ---------------------------------------------------------
 
-    private fun startScanning() {
+    /**
+     * Call with [radioMutex] held. Waits for a free slot in [scanBudget]
+     * first: a start over the platform's limit is accepted but hears nothing.
+     */
+    private suspend fun restartScanning() {
+        val waitMs = scanBudget.waitMs(SystemClock.elapsedRealtime())
+        if (waitMs > 0) {
+            Log.i(TAG, "Holding the scan restart ${waitMs}ms to stay under the scan start limit")
+            delay(waitMs)
+        }
+        stopScanning()
+        delay(RADIO_SETTLE_MS)
+        startScanning(radarMode.value)
+    }
+
+    private fun startScanning(fast: Boolean) {
+        scanningFast = fast
+        scanBudget = scanBudget.recorded(SystemClock.elapsedRealtime())
         val scn = scanner ?: run {
             Log.w(TAG, "No BLE scanner available on this device; cannot scan for twins")
             return
@@ -255,7 +295,7 @@ class BleProximityService : Service() {
 
         val settings = ScanSettings.Builder()
             .setScanMode(
-                if (radarMode.value) {
+                if (fast) {
                     ScanSettings.SCAN_MODE_LOW_LATENCY
                 } else {
                     ScanSettings.SCAN_MODE_BALANCED
@@ -298,7 +338,7 @@ class BleProximityService : Service() {
                 // Already resolved on an earlier scan — just update live
                 // RSSI, no repeat Firestore call. This is what drives
                 // RadarScreen's "getting closer/farther" feedback.
-                publishRssi(cachedTwinId, result.rssi)
+                publishRssi(cachedTwinId, token, result.rssi)
                 maybeCheckin(myId, cachedTwinId, token, result.rssi)
                 return
             }
@@ -320,13 +360,19 @@ class BleProximityService : Service() {
                 } ?: return@launch
                 if (otherTwinId == myId) return@launch
                 resolvedTokens[token] = otherTwinId
-                publishRssi(otherTwinId, result.rssi)
+                publishRssi(otherTwinId, token, result.rssi)
                 maybeCheckin(myId, otherTwinId, token, result.rssi)
             }
         }
 
         override fun onScanFailed(errorCode: Int) {
             Log.e(TAG, "BLE scan failed, errorCode=$errorCode")
+            if (errorCode == SCAN_FAILED_ALREADY_STARTED) return
+            // Otherwise nothing scans until the periodic restart, minutes away.
+            serviceScope.launch {
+                delay(RADIO_RETRY_MS)
+                radioMutex.withLock { restartScanning() }
+            }
         }
     }
 
@@ -409,14 +455,29 @@ class BleProximityService : Service() {
         private const val TAG = "BleProximityService"
         private const val NOTIFICATION_ID = 42
 
-        /** Roughly "within a couple of metres". Tune at the venue via logcat. */
-        private const val MIN_RSSI_DBM = -72
+        /**
+         * Roughly "within a few metres" when one or both phones are in a
+         * pocket, which costs 10 dB or more against two phones held in the
+         * open. Held in the open this reaches further than that, which only
+         * means a negotiation starts a little early. Tune at the venue via
+         * logcat.
+         */
+        private const val MIN_RSSI_DBM = -80
 
         /** Re-report a token we keep seeing at most this often. */
         private const val SEEN_TTL_MS = 60_000L
 
         /** Under Samsung's 5 min long-scan limit, the shortest we know of. */
         private const val SCAN_RESTART_MS = 4 * 60_000L
+
+        /** How long the radar has to stay open (or closed) before the radios follow. */
+        private const val RADAR_MODE_SETTLE_MS = 750L
+
+        /** Gap between stopping a radio and starting it again. */
+        private const val RADIO_SETTLE_MS = 200L
+
+        /** How long after a failed start to try again. */
+        private const val RADIO_RETRY_MS = 10_000L
 
         // Rate limit for the check-in write (NOT the radar, which wants every
         // reading). Static so the Home screen's "Reset demo" can clear it
@@ -434,30 +495,32 @@ class BleProximityService : Service() {
 
         fun forgetSeenTokens() = lastSeenAtMs.clear()
 
-        // Latest RSSI (dBm) per resolved nearby twinId — a rougher-but-
-        // real stand-in for "distance" (no UWB on these phones, just BLE
-        // signal strength, which is noisy: affected by orientation,
-        // obstacles, and crowd density — good enough for a "warmer/
-        // colder" radar affordance, not precise distance). Written from
-        // this Service's scanCallback above; RadarScreen collects it.
-        private val _nearbyRssi = MutableStateFlow<Map<String, Int>>(emptyMap())
-        val nearbyRssi: StateFlow<Map<String, Int>> = _nearbyRssi
+        /**
+         * One BLE reading of another twin. [token] tells their phone and their
+         * badge apart: both resolve to the same twin but sit in different
+         * places on the body and read at different levels.
+         */
+        data class RssiSample(
+            val twinId: String,
+            val token: String,
+            val rssiDbm: Int,
+            val elapsedRealtimeMs: Long,
+        )
 
-        /** One BLE reading of another twin's phone. */
-        data class RssiSample(val twinId: String, val rssiDbm: Int, val elapsedRealtimeMs: Long)
-
-        // Every reading, in order. nearbyRssi above is a StateFlow and drops a
-        // reading equal to the last one; the radar's direction estimate needs
-        // each reading paired with the heading it arrived at.
+        // Every reading, in order. BLE signal strength is a rough stand-in for
+        // distance (no UWB on these phones): noisy, and bent by orientation,
+        // bodies and crowd density. Good for "warmer/colder", not for range.
+        // A SharedFlow, not a StateFlow, which would drop a reading equal to
+        // the last one; the radar's direction estimate needs every reading
+        // paired with the heading it arrived at.
         private val _rssiSamples = MutableSharedFlow<RssiSample>(
             extraBufferCapacity = 64,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
         val rssiSamples: SharedFlow<RssiSample> = _rssiSamples
 
-        private fun publishRssi(twinId: String, rssiDbm: Int) {
-            _nearbyRssi.update { it + (twinId to rssiDbm) }
-            _rssiSamples.tryEmit(RssiSample(twinId, rssiDbm, SystemClock.elapsedRealtime()))
+        private fun publishRssi(twinId: String, token: String, rssiDbm: Int) {
+            _rssiSamples.tryEmit(RssiSample(twinId, token, rssiDbm, SystemClock.elapsedRealtime()))
         }
 
         private val radarMode = MutableStateFlow(false)
