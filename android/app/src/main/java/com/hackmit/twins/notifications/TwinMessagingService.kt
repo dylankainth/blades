@@ -9,6 +9,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.hackmit.twins.MainActivity
+import com.hackmit.twins.voice.VoiceRepository
 import com.hackmit.twins.R
 
 /**
@@ -52,6 +53,11 @@ class TwinMessagingService : FirebaseMessagingService() {
         val matchId = data["matchId"] ?: return
         val reason = data["reason"] ?: "Your twin thinks you two should talk."
         val photoUrl = data["otherPhotoUrl"]
+
+        // The twin says it in your ear as well as on screen — but only if you
+        // are wearing headphones. Same wording as the notification, so it
+        // names nobody before both people approve the reveal.
+        VoiceRepository.whisperIfListening(this, "Your twin found someone. $reason")
 
         val contentIntent = Intent(this, MainActivity::class.java).apply {
             action = MainActivity.ACTION_OPEN_TEASER

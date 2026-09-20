@@ -9,6 +9,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
+import android.Manifest
+import android.content.pm.PackageManager
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.OutlinedButton
+import androidx.core.content.ContextCompat
+import com.hackmit.twins.voice.VoiceRepository
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
@@ -116,7 +126,27 @@ fun OnboardingScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size)
     }
 
-    fun sendMessage(text: String) {
+    var isListening by remember { mutableStateOf(false) }
+    var isTranscribing by remember { mutableStateOf(false) }
+
+    fun startListening() {
+        try {
+            VoiceRepository.startRecording(context)
+            isListening = true
+        } catch (e: Exception) {
+            Log.e("Onboarding", "Couldn't start the microphone", e)
+            Toast.makeText(context, "Couldn't start the microphone.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val micPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) startListening()
+        else Toast.makeText(context, "No mic access, so typing it is.", Toast.LENGTH_SHORT).show()
+    }
+
+    fun sendMessage(text: String, spoken: Boolean = false) {
         if (text.isBlank() || isSending) return
         messages.add(ChatMessage(fromUser = true, text = text))
         input = ""
@@ -139,6 +169,19 @@ fun OnboardingScreen(
                 val complete = data?.get("onboardingComplete") as? Boolean ?: false
 
                 messages.add(ChatMessage(fromUser = false, text = reply))
+                // You spoke, so the twin answers out loud. Its own launch: a
+                // failed or slow voice must never hold up the chat itself.
+                if (spoken) {
+                    scope.launch {
+                        try {
+                            VoiceRepository.speak(context, reply)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.w("Onboarding", "Couldn't speak the reply", e)
+                        }
+                    }
+                }
                 if (complete) onOnboardingComplete()
             } catch (e: Exception) {
                 messages.add(
@@ -261,7 +304,7 @@ fun OnboardingScreen(
                     value = input,
                     onValueChange = { input = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message...") },
+                    placeholder = { Text(if (isListening) "Listening…" else "Type or tap Speak") },
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = KlickColors.TextPrimary,
@@ -270,7 +313,51 @@ fun OnboardingScreen(
                         unfocusedContainerColor = KlickColors.CardSurface,
                     ),
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        when {
+                            isListening -> {
+                                isListening = false
+                                isTranscribing = true
+                                scope.launch {
+                                    try {
+                                        val heard = VoiceRepository.stopAndTranscribe()
+                                        if (heard.isBlank()) {
+                                            Toast.makeText(context, "Didn't catch that.", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            sendMessage(heard, spoken = true)
+                                        }
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        Log.e("Onboarding", "Transcription failed", e)
+                                        Toast.makeText(context, "Couldn't hear that. Try typing it.", Toast.LENGTH_SHORT).show()
+                                    } finally {
+                                        isTranscribing = false
+                                    }
+                                }
+                            }
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                                PackageManager.PERMISSION_GRANTED -> startListening()
+                            else -> micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    enabled = !isSending && !isTranscribing,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, if (isListening) KlickColors.TextPrimary else KlickColors.Border),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = KlickColors.TextPrimary),
+                ) {
+                    Text(
+                        text = when {
+                            isListening -> "Stop"
+                            isTranscribing -> "…"
+                            else -> "Speak"
+                        },
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = { sendMessage(input) },
                     enabled = !isSending,

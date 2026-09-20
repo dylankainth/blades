@@ -10,3 +10,6 @@
 import { defineSecret } from "firebase-functions/params";
 
 export const META_MODEL_API_KEY = defineSecret("META_MODEL_API_KEY");
+
+/** Deepgram API key: speech-to-text + text-to-speech. See lib/deepgram.ts. */
+export const DEEPGRAM_API_KEY = defineSecret("DEEPGRAM_API_KEY");

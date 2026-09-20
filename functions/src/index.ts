@@ -10,3 +10,5 @@ export { submitMatchApproval } from "./submitMatchApproval";
 export { boxState } from "./boxState";
 export { boxEvent } from "./boxEvent";
 export { pairBox, resetDemo } from "./boxPairing";
+// Voice via Deepgram — see voice.ts
+export { transcribeSpeech, speakText } from "./voice";
