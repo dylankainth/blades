@@ -1,0 +1,14 @@
+dependencies:
+  idf: ">=5.3"
+  # Waveshare ESP32-S3-Touch-AMOLED-1.8. There IS a registry BSP
+  # (waveshare/esp32_s3_touch_amoled_1_8) but v2.0.3 registers the QSPI panel
+  # through lvgl_port_add_disp_rgb(), which corrupts memory on a non-RGB panel,
+  # and never pulses the TCA9554 reset lines. board.c does the bring-up itself
+  # with the same Espressif drivers the BSP and Waveshare's demos use.
+  espressif/esp_lcd_sh8601: "^2.0.1"          # SH8601 (V1) and CO5300 (V2) share this command set
+  espressif/esp_lcd_touch_ft5x06: "^1.1.0"    # FT3168 (V1) is FT5x06 compatible
+  espressif/esp_lcd_touch_cst816s: "^1.1.1"   # CST820 (V2) is CST816S compatible
+  espressif/esp_lvgl_port: "^2.9.0"
+  espressif/button: "^4.2.1"
+  # Same LVGL release as the BOX-3 build, so ui.c / creature.c behave identically.
+  lvgl/lvgl: "~9.4.0"

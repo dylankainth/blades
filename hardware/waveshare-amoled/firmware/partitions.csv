@@ -1,0 +1,5 @@
+# The Waveshare ESP32-S3-Touch-AMOLED-1.8 has 16MB flash. Single big factory app, no OTA (hackathon).
+# Name,   Type, SubType, Offset,  Size
+nvs,      data, nvs,     0x9000,  0x6000,
+phy_init, data, phy,     0xf000,  0x1000,
+factory,  app,  factory, 0x10000, 8M,
