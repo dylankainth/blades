@@ -32,11 +32,9 @@ class TwinMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        // TODO: send `token` up to Firestore/backend, keyed by twinId, so
-        // the matching Cloud Function knows where to deliver match pushes
-        // for this device. (Needs twinId, which requires sign-in to have
-        // already happened — wire this up once MainActivity's startup
-        // sequencing is finalized.)
+        // No-op while signed out; MainActivity syncs the current token again
+        // as soon as a twin is signed in (see PushTokenRepository).
+        PushTokenRepository.register(token)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {

@@ -1,5 +1,7 @@
 package com.hackmit.twins
 
+import com.hackmit.twins.notifications.PushTokenRepository
+import androidx.lifecycle.lifecycleScope
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -86,9 +88,18 @@ class MainActivity : ComponentActivity() {
             emptyArray()
         }
 
+    private val notificationPermissions: Array<String>
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            emptyArray()
+        }
+
     private val requestPermissionsLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
-            if (grants.values.all { it }) {
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+            // Bluetooth decides whether proximity can run; a declined
+            // notification permission must not hold that up.
+            if (hasAll(bluetoothPermissions)) {
                 startBleService()
             }
             // If denied: we don't nag/re-prompt — BLE proximity just won't
@@ -141,14 +152,21 @@ class MainActivity : ComponentActivity() {
     /** Called once we actually have a signed-in twinId (fresh sign-in/up,
      *  or an already-persisted Firebase Auth session on cold start). */
     private fun startBlePipeline() {
-        val allGranted = bluetoothPermissions.all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        }
-        if (allGranted) {
-            startBleService()
-        } else if (bluetoothPermissions.isNotEmpty()) {
-            requestPermissionsLauncher.launch(bluetoothPermissions)
-        }
+        // A match is delivered as a push, so the twin's profile has to know
+        // this device's FCM token (see PushTokenRepository).
+        lifecycleScope.launch { PushTokenRepository.syncCurrentToken() }
+
+        if (hasAll(bluetoothPermissions)) startBleService()
+
+        // Ask for everything still missing in one prompt sequence. Android 13+
+        // will not show "your twin found someone" (or even the foreground
+        // service's own notification) without POST_NOTIFICATIONS.
+        val missing = (bluetoothPermissions + notificationPermissions).filterNot { hasAll(arrayOf(it)) }
+        if (missing.isNotEmpty()) requestPermissionsLauncher.launch(missing.toTypedArray())
+    }
+
+    private fun hasAll(permissions: Array<String>): Boolean = permissions.all {
+        ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun startBleService() {
