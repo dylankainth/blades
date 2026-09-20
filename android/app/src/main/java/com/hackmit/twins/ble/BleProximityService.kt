@@ -20,6 +20,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.ParcelUuid
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.hackmit.twins.MainActivity
@@ -30,9 +31,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -80,6 +85,11 @@ class BleProximityService : Service() {
     // limited separately: see markSeen() in the companion object.
     private val resolvedTokens = ConcurrentHashMap<String, String>()
 
+    // Guards the radio restarts below: the periodic scan restart and a radar
+    // mode change run on different coroutines.
+    private val radioLock = Any()
+    private var radioStarted = false
+
     override fun onCreate() {
         super.onCreate()
         val bluetoothManager = getSystemService(BluetoothManager::class.java)
@@ -100,15 +110,35 @@ class BleProximityService : Service() {
         myToken = generateToken()
         serviceScope.launch {
             BleSessionRepository.registerToken(myToken, twinId)
-            startAdvertising(myToken)
-            startScanning()
+            synchronized(radioLock) {
+                startAdvertising(myToken)
+                startScanning()
+                radioStarted = true
+            }
             // Android quietly downgrades a long-running scan to opportunistic
             // (after 5 min on Samsung One UI, 30 min on AOSP) and results stop
             // arriving. Restarting before that deadline keeps detection live.
             while (isActive) {
                 delay(SCAN_RESTART_MS)
-                stopScanning()
-                startScanning()
+                synchronized(radioLock) {
+                    stopScanning()
+                    startScanning()
+                }
+            }
+        }
+        // The radar turns a person's heading into a bearing, which needs many
+        // readings per second. Both radios switch to their fastest setting
+        // while it is open and back when it closes. drop(1): the start above
+        // already read the current value.
+        serviceScope.launch {
+            radarMode.drop(1).collect {
+                synchronized(radioLock) {
+                    if (!radioStarted) return@synchronized
+                    stopScanning()
+                    startScanning()
+                    stopAdvertising()
+                    startAdvertising(myToken)
+                }
             }
         }
     }
@@ -159,7 +189,15 @@ class BleProximityService : Service() {
         }
 
         val settings = AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+            .setAdvertiseMode(
+                if (radarMode.value) {
+                    AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY
+                } else {
+                    AdvertiseSettings.ADVERTISE_MODE_BALANCED
+                },
+            )
+            // Same power in both modes, so switching does not move the RSSI
+            // that MIN_RSSI_DBM and the radar's closeness scale are tuned to.
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
             .setConnectable(false) // broadcast-only, no GATT server backing this
             .build()
@@ -216,7 +254,13 @@ class BleProximityService : Service() {
             .build()
 
         val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+            .setScanMode(
+                if (radarMode.value) {
+                    ScanSettings.SCAN_MODE_LOW_LATENCY
+                } else {
+                    ScanSettings.SCAN_MODE_BALANCED
+                },
+            )
             .build()
 
         try {
@@ -254,7 +298,7 @@ class BleProximityService : Service() {
                 // Already resolved on an earlier scan — just update live
                 // RSSI, no repeat Firestore call. This is what drives
                 // RadarScreen's "getting closer/farther" feedback.
-                _nearbyRssi.update { it + (cachedTwinId to result.rssi) }
+                publishRssi(cachedTwinId, result.rssi)
                 maybeCheckin(myId, cachedTwinId, token, result.rssi)
                 return
             }
@@ -276,7 +320,7 @@ class BleProximityService : Service() {
                 } ?: return@launch
                 if (otherTwinId == myId) return@launch
                 resolvedTokens[token] = otherTwinId
-                _nearbyRssi.update { it + (otherTwinId to result.rssi) }
+                publishRssi(otherTwinId, result.rssi)
                 maybeCheckin(myId, otherTwinId, token, result.rssi)
             }
         }
@@ -398,6 +442,30 @@ class BleProximityService : Service() {
         // this Service's scanCallback above; RadarScreen collects it.
         private val _nearbyRssi = MutableStateFlow<Map<String, Int>>(emptyMap())
         val nearbyRssi: StateFlow<Map<String, Int>> = _nearbyRssi
+
+        /** One BLE reading of another twin's phone. */
+        data class RssiSample(val twinId: String, val rssiDbm: Int, val elapsedRealtimeMs: Long)
+
+        // Every reading, in order. nearbyRssi above is a StateFlow and drops a
+        // reading equal to the last one; the radar's direction estimate needs
+        // each reading paired with the heading it arrived at.
+        private val _rssiSamples = MutableSharedFlow<RssiSample>(
+            extraBufferCapacity = 64,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+        val rssiSamples: SharedFlow<RssiSample> = _rssiSamples
+
+        private fun publishRssi(twinId: String, rssiDbm: Int) {
+            _nearbyRssi.update { it + (twinId to rssiDbm) }
+            _rssiSamples.tryEmit(RssiSample(twinId, rssiDbm, SystemClock.elapsedRealtime()))
+        }
+
+        private val radarMode = MutableStateFlow(false)
+
+        /** Called by RadarScreen while it is on screen. Safe when the service is not running. */
+        fun setRadarMode(active: Boolean) {
+            radarMode.value = active
+        }
 
         private fun tokenToBytes(token: String): ByteArray =
             ByteArray(token.length / 2) { i ->

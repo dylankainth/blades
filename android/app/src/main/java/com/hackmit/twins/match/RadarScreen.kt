@@ -24,6 +24,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -34,8 +35,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -60,7 +65,9 @@ private const val STALE_CACHE_GRACE_MS = 1_500L
  * decorative animation. See BleProximityService's nearbyRssi.
  *
  * Signal strength is a rough, noisy stand-in for distance (no UWB on these
- * phones) — good for "warmer/colder" feedback, not precise range/direction.
+ * phones) — good for "warmer/colder" feedback, not precise range. Direction
+ * is a guess built from the same signal once the user has turned around: see
+ * [DirectionSweep].
  *
  * Once the pair shakes their badges the backend sets matches/{id}.metAt; the
  * radar then confirms it and closes itself via [onMet], since there is
@@ -105,6 +112,40 @@ fun RadarScreen(
 
     val rssiByTwin by BleProximityService.nearbyRssi.collectAsState()
     val rssi = rssiByTwin[otherTwinId]
+
+    // Direction: every reading is filed under the heading the user faced when
+    // it arrived. Nothing left to find once the pair has met.
+    DisposableEffect(met) {
+        BleProximityService.setRadarMode(!met)
+        onDispose { BleProximityService.setRadarMode(false) }
+    }
+    val heading by rememberHeadingDeg()
+    val currentHeading by rememberUpdatedState(heading)
+    var sweep by remember(otherTwinId) { mutableStateOf(DirectionSweep()) }
+    LaunchedEffect(otherTwinId) {
+        BleProximityService.rssiSamples.collect { sample ->
+            val facing = currentHeading
+            if (sample.twinId == otherTwinId && facing != null) {
+                sweep = sweep.add(facing, sample.rssiDbm, sample.elapsedRealtimeMs)
+            }
+        }
+    }
+    // Heading changes recompose this many times a second, which is also what
+    // lets old readings age out of the estimate without a timer.
+    val nowMs = SystemClock.elapsedRealtime()
+    val direction = if (met) null else sweep.estimate(nowMs)
+    val facing = heading
+
+    // Kept unwrapped (it can pass 360) so the arrow turns the short way round.
+    var shownBearing by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(direction?.bearingDeg) {
+        direction?.let { shownBearing += shortestTurn(shownBearing, it.bearingDeg) }
+    }
+    val animatedBearing by animateFloatAsState(
+        targetValue = shownBearing,
+        animationSpec = tween(500),
+        label = "bearing",
+    )
 
     // -100 dBm (no signal) -> 0f, -40 dBm (very close) -> 1f.
     val targetCloseness = if (met) 1f else rssi?.let { ((it + 100f) / 60f).coerceIn(0f, 1f) } ?: 0f
@@ -154,7 +195,13 @@ fun RadarScreen(
             )
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                RadarRings(closeness = closeness)
+                RadarRings(
+                    closeness = closeness,
+                    sectorStrengths = if (met || facing == null) null else sweep.strengths(nowMs),
+                    headingDeg = facing ?: 0f,
+                    arrowBearingDeg = if (direction != null && facing != null) animatedBearing else null,
+                    arrowConfidence = direction?.confidence ?: 0f,
+                )
             }
 
             Text(
@@ -168,6 +215,11 @@ fun RadarScreen(
                     "Marked as met. Closing this match."
                 } else if (met) {
                     "You two have already met."
+                } else if (direction != null && facing != null) {
+                    "Probably ${relativeDirectionLabel(direction.bearingDeg, facing)}. " +
+                        "A rough guess from signal strength."
+                } else if (rssi != null && facing != null) {
+                    "Turn around slowly on the spot so the arrow can find them."
                 } else {
                     "Signal strength only — not exact distance or direction."
                 },
@@ -180,11 +232,64 @@ fun RadarScreen(
     }
 }
 
+/** Gap between neighbouring sectors of the outer ring, in degrees. */
+private const val SECTOR_GAP_DEG = 4f
+
+/**
+ * @param sectorStrengths what [DirectionSweep.strengths] returned, or null to
+ *   hide the outer ring. It is drawn fixed to the room, not the phone, so it
+ *   turns against the user as they turn: [headingDeg] is what is at the top.
+ * @param arrowBearingDeg where the arrow points, in the same frame; null hides it.
+ */
 @Composable
-private fun RadarRings(closeness: Float) {
-    Canvas(modifier = Modifier.size(260.dp)) {
+private fun RadarRings(
+    closeness: Float,
+    sectorStrengths: List<Float?>?,
+    headingDeg: Float,
+    arrowBearingDeg: Float?,
+    arrowConfidence: Float,
+) {
+    // The direction is in the text under the radar; the drawing adds nothing
+    // a screen reader can use.
+    Canvas(modifier = Modifier.size(280.dp).clearAndSetSemantics { }) {
         val center = Offset(size.width / 2, size.height / 2)
-        val maxRadius = size.minDimension / 2
+        val outerRadius = size.minDimension / 2
+        val maxRadius = outerRadius * 0.8f
+
+        if (sectorStrengths != null) {
+            val stroke = 7.dp.toPx()
+            val ringRadius = outerRadius - stroke / 2
+            val sectorWidth = 360f / sectorStrengths.size
+            sectorStrengths.forEachIndexed { i, strength ->
+                drawArc(
+                    color = KlickColors.TextPrimary.copy(
+                        alpha = if (strength == null) 0.06f else 0.16f + 0.6f * strength,
+                    ),
+                    // Canvas angles start at 3 o'clock; headings start at the top.
+                    startAngle = i * sectorWidth - headingDeg - 90f + SECTOR_GAP_DEG / 2,
+                    sweepAngle = sectorWidth - SECTOR_GAP_DEG,
+                    useCenter = false,
+                    topLeft = Offset(center.x - ringRadius, center.y - ringRadius),
+                    size = Size(ringRadius * 2, ringRadius * 2),
+                    style = Stroke(width = stroke),
+                )
+            }
+        }
+        if (arrowBearingDeg != null) {
+            val tip = outerRadius * 0.86f
+            val base = outerRadius * 0.66f
+            val halfWidth = outerRadius * 0.1f
+            val arrow = Path().apply {
+                moveTo(center.x, center.y - tip)
+                lineTo(center.x - halfWidth, center.y - base)
+                lineTo(center.x + halfWidth, center.y - base)
+                close()
+            }
+            rotate(degrees = arrowBearingDeg - headingDeg, pivot = center) {
+                // Fainter when the strong sectors disagree with each other.
+                drawPath(arrow, KlickColors.Accent.copy(alpha = (0.2f + arrowConfidence).coerceIn(0.5f, 1f)))
+            }
+        }
         // Three rings, spaced further apart when far, tighter (converging
         // on the center dot) as closeness increases — the "getting warmer"
         // visual cue.
