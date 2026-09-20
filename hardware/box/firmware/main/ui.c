@@ -67,7 +67,7 @@ static void show_pairing(void)
 
 static void show_nametag(const badge_state_t *st)
 {
-    show_badge(COLOR_BG, st->owner_name[0] ? st->owner_name : "Kindred", MOOD_IDLE, true);
+    show_badge(COLOR_BG, st->owner_name[0] ? st->owner_name : "Klick", MOOD_IDLE, true);
 }
 
 static void on_transient_done(lv_timer_t *timer)
@@ -187,7 +187,7 @@ static void build_pair_panel(lv_obj_t *screen, const char *box_id)
     lv_obj_t *id_label = make_label(card, &lv_font_montserrat_28, 0x000000, box_id);
     lv_obj_align(id_label, LV_ALIGN_BOTTOM_MID, 0, -6);
 
-    lv_obj_t *brand = make_label(s_pair_panel, &lv_font_montserrat_28, COLOR_INK, "Kindred");
+    lv_obj_t *brand = make_label(s_pair_panel, &lv_font_montserrat_28, COLOR_INK, "Klick");
     lv_obj_align(brand, LV_ALIGN_TOP_RIGHT, -14, 40);
     lv_obj_t *hint = make_label(s_pair_panel, &lv_font_montserrat_20, 0x9ca3af, "Scan to\npair");
     lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_RIGHT, 0);
