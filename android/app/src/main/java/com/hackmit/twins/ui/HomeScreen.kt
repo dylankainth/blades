@@ -36,7 +36,7 @@ import com.hackmit.twins.badge.PairBadgeButton
 import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.delay
 
-/** Rotates below "Working quietly" — small, warm status lines rather than
+/** Rotates below the character — small, warm status lines rather than
  *  a single static caption, so the idle screen feels alive over time. */
 private val SPLASH_MESSAGES = listOf(
     "No pings unless it's worth it.",
@@ -83,21 +83,14 @@ fun HomeScreen(onShowRecent: () -> Unit, onLogout: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                ListeningAvatar(size = 148.dp)
                 Text(
                     text = "Actively engaging nearby",
                     style = MaterialTheme.typography.titleMedium,
                     color = KlickColors.TextPrimary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 40.dp),
+                    modifier = Modifier.padding(bottom = 40.dp),
                 )
-                Text(
-                    text = "Working quietly",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = KlickColors.TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
+                ListeningAvatar(size = 148.dp)
 
                 var splashIndex by remember { mutableIntStateOf(0) }
                 LaunchedEffect(Unit) {
@@ -110,7 +103,7 @@ fun HomeScreen(onShowRecent: () -> Unit, onLogout: () -> Unit) {
                     targetState = splashIndex,
                     transitionSpec = { fadeIn() togetherWith fadeOut() },
                     label = "splash",
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = 28.dp),
                 ) { index ->
                     Text(
                         text = SPLASH_MESSAGES[index],

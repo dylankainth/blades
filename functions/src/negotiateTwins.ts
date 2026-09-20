@@ -51,6 +51,15 @@ function boundariesInstruction(twin: TwinProfile): string {
   return `\n\n${twin.name || "This person"} has asked you not to bring up: ${offLimits.join("; ")}. Even if their profile below mentions any of this, do not surface it in the conversation — stick to what's in bounds.`;
 }
 
+/** Renders TwinProfile.facts as a bullet list for the persona prompt, or ""
+ *  if there are none — keeps the prompt the same shape it was before facts
+ *  existed for twins that don't have any extracted yet. */
+function factsBlock(twin: TwinProfile): string {
+  const facts = twin.facts ?? [];
+  if (facts.length === 0) return "";
+  return `\n${facts.map((f) => `- ${f.category}: ${f.detail}`).join("\n")}`;
+}
+
 function personaSystemPrompt(speaker: TwinProfile, other: TwinProfile): string {
   return `You are the digital twin representing ${speaker.name || "a person"} at a
 networking event. Your job in this conversation is to evaluate, honestly and
@@ -59,11 +68,11 @@ to ${other.name || "another attendee"}, based on the two profiles below.
 
 ${speaker.name || "Your person"}'s profile:
 ${speaker.summary || "(no summary yet)"}
-Interests: ${(speaker.interests ?? []).join(", ") || "(none extracted yet)"}
+Interests: ${(speaker.interests ?? []).join(", ") || "(none extracted yet)"}${factsBlock(speaker)}
 
 ${other.name || "The other person"}'s profile:
 ${other.summary || "(no summary yet)"}
-Interests: ${(other.interests ?? []).join(", ") || "(none extracted yet)"}
+Interests: ${(other.interests ?? []).join(", ") || "(none extracted yet)"}${factsBlock(other)}
 
 Be honest and specific, not falsely enthusiastic — if there's no real reason
 to connect, say so plainly. Keep each message to 1-3 sentences. You are

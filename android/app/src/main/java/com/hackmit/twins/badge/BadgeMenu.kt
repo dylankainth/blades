@@ -90,7 +90,7 @@ fun PairBadgeButton(modifier: Modifier = Modifier) {
         border = BorderStroke(1.dp, KlickColors.Border),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = KlickColors.TextPrimary),
     ) {
-        Text("Got a badge? Scan its QR to pair", style = MaterialTheme.typography.labelLarge)
+        Text("Got a badge?", style = MaterialTheme.typography.labelLarge)
     }
 }
 
