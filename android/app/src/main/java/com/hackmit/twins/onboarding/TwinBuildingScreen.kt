@@ -2,7 +2,7 @@ package com.hackmit.twins.onboarding
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,16 +34,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hackmit.twins.ui.theme.KlickColors
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 /**
- * A deliberately fake "building your twin" screen shown for a few seconds
- * right after the text dump (and optional Instagram/LinkedIn/Facebook
- * context) is submitted, before landing on Home. The real work — the
- * `submitContext` / `importSocialContext` calls — has already completed by
- * the time this appears (see OnboardingScreen.submitTextDump); this is pure
- * theater so the moment your twin comes into existence feels like something,
- * instead of a network spinner blinking out into the next screen.
+ * A deliberately fake "building your twin" screen shown between the
+ * boundaries step and the "You're in" completion step (see
+ * OnboardingScreen.saveBoundariesAndAdvance). The real work — the
+ * `submitContext` / `importSocialContext` / `submitBoundaries` calls — has
+ * already completed by the time this appears; this is pure theater so the
+ * moment your twin comes into existence feels like something, instead of a
+ * network spinner blinking out into the next screen.
  */
 private data class BuildStep(val threshold: Float, val message: String)
 
@@ -53,7 +55,22 @@ private val BUILD_STEPS = listOf(
     BuildStep(0.78f, "Finding your twin's voice."),
 )
 
-private const val DURATION_MS = 2600
+/**
+ * A real progress bar that climbed at a constant rate would read as fake —
+ * actual work stalls and bursts. Each segment animates to a target (with
+ * a little jitter so it's not identical every run) and then pauses, as if
+ * that step is "thinking" before the next one kicks off.
+ */
+private data class BuildSegment(val target: Float, val durationMs: Int, val pauseAfterMs: Long)
+
+private fun randomSegments(): List<BuildSegment> = listOf(
+    BuildSegment(target = 0.16f + Random.nextFloat() * 0.08f, durationMs = 320, pauseAfterMs = 120L),
+    BuildSegment(target = 0.4f, durationMs = 260, pauseAfterMs = 480L), // stall — "reading" finishes
+    BuildSegment(target = 0.58f + Random.nextFloat() * 0.07f, durationMs = 480, pauseAfterMs = 90L),
+    BuildSegment(target = 0.78f, durationMs = 240, pauseAfterMs = 560L), // stall — "cross-referencing" finishes
+    BuildSegment(target = 0.92f + Random.nextFloat() * 0.05f, durationMs = 360, pauseAfterMs = 70L),
+    BuildSegment(target = 1f, durationMs = 220, pauseAfterMs = 0L),
+)
 
 @Composable
 fun TwinBuildingScreen(
@@ -62,7 +79,10 @@ fun TwinBuildingScreen(
 ) {
     val progress = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        progress.animateTo(1f, animationSpec = tween(DURATION_MS, easing = LinearEasing))
+        for (segment in randomSegments()) {
+            progress.animateTo(segment.target, animationSpec = tween(segment.durationMs, easing = FastOutSlowInEasing))
+            if (segment.pauseAfterMs > 0) delay(segment.pauseAfterMs)
+        }
         onComplete()
     }
 
