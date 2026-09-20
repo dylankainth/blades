@@ -1,5 +1,23 @@
 package com.hackmit.twins.onboarding
 
+import kotlinx.coroutines.CancellationException
+import com.hackmit.twins.voice.VoiceRepository
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.imePadding
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
+import android.widget.Toast
+import android.util.Log
+import android.content.pm.PackageManager
+import android.Manifest
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -71,8 +89,38 @@ import kotlinx.coroutines.tasks.await
 fun OnboardingScreen(
     twinId: String,
     onOnboardingComplete: () -> Unit,
+    onBack: () -> Unit,
+    onSkip: () -> Unit,
 ) {
+    // Onboarding is the root of the back stack once you're signed in, so
+    // without this the system back gesture just closes the app.
+    BackHandler(onBack = onBack)
+
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Voice: dictate into the text box instead of typing (Deepgram, via
+    // functions/src/voice.ts). usedVoice makes the twin answer out loud once.
+    var isListening by remember { mutableStateOf(false) }
+    var isTranscribing by remember { mutableStateOf(false) }
+    var usedVoice by remember { mutableStateOf(false) }
+
+    fun startListening() {
+        try {
+            VoiceRepository.startRecording(context)
+            isListening = true
+        } catch (e: Exception) {
+            Log.e("Onboarding", "Couldn't start the microphone", e)
+            Toast.makeText(context, "Couldn't start the microphone.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val micPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) startListening()
+        else Toast.makeText(context, "No mic access, so typing it is.", Toast.LENGTH_SHORT).show()
+    }
 
     var textDump by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
@@ -134,6 +182,14 @@ fun OnboardingScreen(
                     }
                 }
 
+                // You talked to it, so it talks back. Fire-and-forget on the
+                // app-wide scope: this screen is about to leave composition.
+                if (usedVoice) {
+                    VoiceRepository.speakInBackground(
+                        context,
+                        "Got it. I'll keep an eye out for people worth meeting, and only interrupt you when it counts.",
+                    )
+                }
                 onOnboardingComplete()
             } catch (e: Exception) {
                 submitError = "Couldn't save that just now — mind trying again? (${e.message})"
@@ -174,6 +230,21 @@ fun OnboardingScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Build your twin") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to sign in",
+                        )
+                    }
+                },
+                actions = {
+                    // Never trap someone here: the twin is thinner without
+                    // it, but they can come back (next launch returns here).
+                    TextButton(onClick = onSkip) {
+                        Text("Skip for now", color = KlickColors.TextSecondary)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = KlickColors.PageBackground,
                 ),
@@ -184,6 +255,7 @@ fun OnboardingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -215,6 +287,54 @@ fun OnboardingScreen(
                     unfocusedContainerColor = KlickColors.CardSurface,
                 ),
             )
+
+            // Say it instead of typing it. Each take is appended, so you can
+            // talk in a few goes and still edit the text before submitting.
+            OutlinedButton(
+                onClick = {
+                    when {
+                        isListening -> {
+                            isListening = false
+                            isTranscribing = true
+                            scope.launch {
+                                try {
+                                    val heard = VoiceRepository.stopAndTranscribe()
+                                    if (heard.isBlank()) {
+                                        Toast.makeText(context, "Didn't catch that.", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        textDump = listOf(textDump.trim(), heard).filter { it.isNotEmpty() }.joinToString(" ")
+                                        usedVoice = true
+                                    }
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    Log.e("Onboarding", "Transcription failed", e)
+                                    Toast.makeText(context, "Couldn't hear that. Try typing it.", Toast.LENGTH_SHORT).show()
+                                } finally {
+                                    isTranscribing = false
+                                }
+                            }
+                        }
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                            PackageManager.PERMISSION_GRANTED -> startListening()
+                        else -> micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                },
+                enabled = !isSubmitting && !isTranscribing,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, if (isListening) KlickColors.TextPrimary else KlickColors.Border),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = KlickColors.TextPrimary),
+            ) {
+                Text(
+                    text = when {
+                        isListening -> "Listening… tap to stop"
+                        isTranscribing -> "Writing that down…"
+                        else -> "Or just tell me out loud"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
 
             // Optional — no OAuth, works for any handle: submitted together
             // with the text dump above, this runs a public web search for

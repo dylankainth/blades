@@ -11,6 +11,9 @@ import { defineSecret } from "firebase-functions/params";
 
 export const META_MODEL_API_KEY = defineSecret("META_MODEL_API_KEY");
 
+/** Deepgram API key: speech-to-text + text-to-speech. See lib/deepgram.ts. */
+export const DEEPGRAM_API_KEY = defineSecret("DEEPGRAM_API_KEY");
+
 /**
  * Parallel AI Search API key (https://api.parallel.ai), used only by
  * importSocialContext.ts's Instagram provider (see lib/parallel.ts and
