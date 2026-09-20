@@ -249,6 +249,21 @@ private fun AppNavHost(
         }
     }
 
+    /**
+     * Signs out and lands back on Welcome, popping the whole back stack up
+     * to [fromRoute] so the signed-out session can't be reached via system
+     * back. Also stops BleProximityService — it's still advertising/
+     * scanning under the now-signed-out twinId otherwise, since nothing
+     * else tears it down on logout.
+     */
+    fun signOutAndGoToWelcome(fromRoute: String) {
+        context.stopService(Intent(context, BleProximityService::class.java))
+        AuthManager.signOut()
+        navController.navigate(Routes.WELCOME) {
+            popUpTo(fromRoute) { inclusive = true }
+        }
+    }
+
     val googleLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -316,12 +331,7 @@ private fun AppNavHost(
                         popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
                 },
-                onBack = {
-                    AuthManager.signOut()
-                    navController.navigate(Routes.WELCOME) {
-                        popUpTo(Routes.ONBOARDING) { inclusive = true }
-                    }
-                },
+                onBack = { signOutAndGoToWelcome(Routes.ONBOARDING) },
                 onSkip = {
                     navController.navigate(Routes.HOME) {
                         popUpTo(Routes.ONBOARDING) { inclusive = true }
@@ -342,6 +352,7 @@ private fun AppNavHost(
                     negotiationDetail = null
                     navController.navigate(Routes.NEGOTIATION_DETAIL)
                 },
+                onLogout = { signOutAndGoToWelcome(Routes.HOME) },
             )
         }
         composable(Routes.NEGOTIATION_DETAIL) {
