@@ -107,6 +107,11 @@ fun OnboardingScreen(
     val context = LocalContext.current
 
     var step by remember { mutableStateOf(0) }
+    // Deliberate theater once step 3's "Enter Klick" is tapped: the real
+    // work (submitContext/importSocialContext/submitBoundaries) already
+    // finished during steps 1-2, so this is pure ceremony before Home —
+    // see TwinBuildingScreen's own header comment.
+    var showBuilding by remember { mutableStateOf(false) }
 
     // Step 1 back to sign-in (root of this flow); step 2/3 back to the
     // previous step. Mirrors the top-left arrow's own onClick below.
@@ -383,7 +388,7 @@ fun OnboardingScreen(
                         when (step) {
                             0 -> step = 1
                             1 -> saveBoundariesAndAdvance()
-                            else -> onOnboardingComplete()
+                            else -> showBuilding = true
                         }
                     },
                     enabled = !isSavingBoundaries,
@@ -572,6 +577,10 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+
+    if (showBuilding) {
+        TwinBuildingScreen(onComplete = onOnboardingComplete)
     }
 }
 
