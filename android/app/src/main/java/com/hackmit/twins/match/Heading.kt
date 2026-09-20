@@ -35,6 +35,18 @@ fun headingFromRotationMatrix(rotation: FloatArray): Float? {
     return (Math.toDegrees(atan2(east.toDouble(), north.toDouble())).toFloat() + 360f) % 360f
 }
 
+/** A compass heading further out than one radar sector files readings in the wrong place. */
+private const val MAX_COMPASS_ERROR_RAD = (Math.PI / 6).toFloat()
+
+/**
+ * Whether a heading from the magnetometer-backed rotation vector is worth
+ * keeping. That sensor reports its own heading error as a fifth value; a
+ * negative or missing one means it did not say, and the heading is kept.
+ */
+fun magneticHeadingUsable(estimatedAccuracyRad: Float?): Boolean =
+    estimatedAccuracyRad == null || estimatedAccuracyRad < 0f ||
+        estimatedAccuracyRad <= MAX_COMPASS_ERROR_RAD
+
 /** "ahead of you", "to your right"... for a bearing relative to where the user faces. */
 fun relativeDirectionLabel(bearingDeg: Float, headingDeg: Float): String {
     val relative = (((bearingDeg - headingDeg) % 360f) + 360f) % 360f
@@ -59,6 +71,11 @@ fun shortestTurn(fromDeg: Float, toDeg: Float): Float =
  * with each other. In exchange it ignores the magnetic mess of a hall full of
  * laptops and steel, which swings the magnetometer-backed sensor by tens of
  * degrees.
+ *
+ * A phone without a gyroscope only has the magnetometer-backed sensor. Its
+ * headings are used while it rates its own error under one radar sector and
+ * dropped (null) while it does not, so the radar falls back to distance only
+ * instead of drawing an arrow from headings it cannot trust.
  */
 @Composable
 fun rememberHeadingDeg(): State<Float?> {
@@ -66,12 +83,17 @@ fun rememberHeadingDeg(): State<Float?> {
     val heading = remember { mutableStateOf<Float?>(null) }
     DisposableEffect(context) {
         val sensorManager = context.getSystemService(SensorManager::class.java)
-        val sensor = sensorManager?.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
-            ?: sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        val gyroSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
+        val sensor = gyroSensor ?: sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        val usesCompass = gyroSensor == null
         val listener = object : SensorEventListener {
             private val rotation = FloatArray(9)
 
             override fun onSensorChanged(event: SensorEvent) {
+                if (usesCompass && !magneticHeadingUsable(event.values.getOrNull(4))) {
+                    heading.value = null
+                    return
+                }
                 SensorManager.getRotationMatrixFromVector(rotation, event.values)
                 headingFromRotationMatrix(rotation)?.let { heading.value = it }
             }
@@ -81,6 +103,7 @@ fun rememberHeadingDeg(): State<Float?> {
         if (sensor == null) {
             Log.w(TAG, "No rotation sensor; the radar will show distance only")
         } else {
+            Log.i(TAG, "Heading from ${sensor.name} (${if (usesCompass) "compass backed" else "gyro only"})")
             sensorManager?.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
         }
         onDispose { sensorManager?.unregisterListener(listener) }
