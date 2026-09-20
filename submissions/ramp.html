@@ -9,77 +9,97 @@
 <body>
 <div class="deck">
 
-    <!-- 1 ─────────────────────────────────────────────── -->
-    <section class="slide textured">
-        <div class="eyebrow">Ramp &middot; Save Time. Save Money.</div>
-        <h1>There are three people<br>here worth your time.</h1>
-        <div class="rule"></div>
-        <p class="lede">
-            You will not find them. Not in a room of a thousand, not in
-            twenty-four hours, not by reading badges.
-        </p>
+    <!-- 1 ───────────────────────────────────────────────
+         The room, drawn. The motif plays itself out behind the title:
+         a thousand dots, every possible introduction, then the collapse. -->
+    <section class="slide">
+        <div class="room-wrap"><canvas data-room data-dots="1000" data-links="5"></canvas></div>
+        <div class="room-veil"></div>
+        <div class="above">
+            <div class="eyebrow" data-rise="1">Ramp &middot; Save Time. Save Money.</div>
+            <h1 data-rise="2">There are three people<br>here worth your time.</h1>
+            <div class="rule" data-rise="3"></div>
+            <p class="lede" data-rise="4">
+                You will not find them. Not in a room of a thousand, not in
+                twenty-four hours, not by reading badges.
+            </p>
+        </div>
         <div class="foot"><span class="brand">Klick</span><span>HackMIT 2026</span></div>
     </section>
 
     <!-- 2 ─────────────────────────────────────────────── -->
     <section class="slide">
-        <div class="eyebrow">What finding them costs today</div>
-        <h2>Hallway roulette, for<br>a day and a half.</h2>
+        <div class="eyebrow" data-rise="1">What finding them costs today</div>
+        <h2 data-rise="2">Hallway roulette, for<br>a day and a half.</h2>
         <div class="cols four">
-            <div class="card">
+            <div class="card" data-rise="3">
                 <div class="k">Your time</div>
                 <h3>~200</h3>
-                <p>Conversations you would need to have to cover the room. You will manage a fraction of that.</p>
+                <p>Conversations you would need to cover the room. You will manage a fraction of that.</p>
             </div>
-            <div class="card">
+            <div class="card" data-rise="3">
                 <div class="k">Hit rate</div>
                 <h3>Under 2%</h3>
                 <p>Of the people you do talk to, almost none are the ones you came to find.</p>
             </div>
-            <div class="card">
+            <div class="card" data-rise="4">
                 <div class="k">What you miss</div>
                 <h3>Everyone else</h3>
                 <p>The person solving your exact problem was forty feet away on Saturday night.</p>
             </div>
-            <div class="card">
+            <div class="card" data-rise="4">
                 <div class="k">The tax</div>
                 <h3>A whole weekend</h3>
-                <p>Spent searching instead of building, and you still leave unsure you met the right people.</p>
+                <p>Spent searching instead of building &mdash; and you still leave unsure you met the right people.</p>
             </div>
         </div>
         <div class="foot"><span class="brand">Klick</span><span>The problem</span></div>
     </section>
 
-    <!-- 3 ─────────────────────────────────────────────── -->
+    <!-- 3 ───────────────────────────────────────────────
+         The hero. `data-live` values are replaced from Firestore while
+         presenting; the numbers written here are the fallback and are
+         correct on their own if the network is down. -->
     <section class="slide dark">
-        <div class="eyebrow">The number</div>
-        <div class="figure">499,500<span class="arrow">&rarr;</span><span class="accent">19</span></div>
-        <div class="figure-sub" style="color: rgba(252,251,250,0.6); max-width: 58ch;">
-            Introductions a system that precomputed a global shortlist would have to
-            reason about for a thousand people &mdash; against what Klick actually ran
-            tonight. <strong style="color:#FCFBFA; font-weight:500;">99.996% of the work never happens.</strong>
+        <div class="above">
+            <div class="eyebrow" data-rise="1">The number, right now</div>
+            <div class="figure" data-rise="2">
+                499,500<span class="arrow">&rarr;</span><span class="accent live-n" data-live="run">19</span>
+            </div>
+            <div class="figure-sub" data-rise="3" style="color: rgba(252,251,250,0.62); max-width: 60ch;">
+                Introductions a system that precomputed a global shortlist would have to
+                reason about for a thousand people &mdash; against what Klick has actually
+                run. <strong style="color:#FCFBFA; font-weight:500;"><span data-live="avoided">99.996%</span>
+                of the work never happens.</strong>
+            </div>
+            <div style="margin-top: 4vh;" data-rise="4">
+                <span class="livetag">
+                    <span class="bulb" data-live-dot></span>
+                    Live from our database
+                </span>
+            </div>
         </div>
-        <div class="foot"><span class="brand">Klick</span><span>Live on the judge dashboard</span></div>
+        <div class="foot"><span class="brand">Klick</span><span>Watch it move while we talk</span></div>
     </section>
 
     <!-- 4 ─────────────────────────────────────────────── -->
     <section class="slide">
-        <div class="eyebrow">Why it collapses</div>
-        <h2>We never compute the<br>introductions nobody needs.</h2>
-        <p class="lede" style="max-width: 58ch;">
+        <div class="eyebrow" data-rise="1">Why it collapses</div>
+        <h2 data-rise="2">We never compute the<br>introductions nobody needs.</h2>
+        <p class="lede" data-rise="3" style="max-width: 58ch;">
             Matching is gated by proximity itself. When two people physically cross
-            paths, their twins negotiate &mdash; and only then. There is no global
-            index, no nightly batch, no shortlist of a thousand strangers.
+            paths, their twins negotiate &mdash; and only then. No global index, no
+            nightly batch, no shortlist of a thousand strangers.
             <strong style="color: var(--text); font-weight: 500;">Cost scales with foot
             traffic, not attendance.</strong>
         </p>
         <div class="cols two" style="margin-top: 4vh;">
-            <div class="card">
+            <div class="card" data-rise="4">
                 <div class="k">Time saved</div>
                 <h3>A weekend &rarr; 90 seconds</h3>
                 <p>One short spoken conversation builds your twin. It does the searching while you build.</p>
             </div>
-            <div class="card">
+            <div class="card" data-rise="4">
                 <div class="k">Money saved</div>
                 <h3>Five orders of magnitude</h3>
                 <p>Every dismissed pairing is measured too &mdash; what a rejection costs is the number this is judged against.</p>
@@ -89,13 +109,17 @@
     </section>
 
     <!-- 5 ─────────────────────────────────────────────── -->
-    <section class="slide textured">
-        <div class="eyebrow">In one line</div>
-        <h2 style="max-width: 20ch;">Ninety seconds of your time,<br>instead of your whole weekend.</h2>
-        <p class="lede">
-            And a few cents of inference instead of half a million introductions
-            nobody asked for.
-        </p>
+    <section class="slide">
+        <div class="room-wrap"><canvas data-room data-dots="900" data-links="3"></canvas></div>
+        <div class="room-veil"></div>
+        <div class="above">
+            <div class="eyebrow" data-rise="1">In one line</div>
+            <h2 data-rise="2" style="max-width: 20ch;">Ninety seconds of your time,<br>instead of your whole weekend.</h2>
+            <p class="lede" data-rise="3">
+                And a few cents of inference instead of half a million introductions
+                nobody asked for.
+            </p>
+        </div>
         <div class="foot"><span class="brand">Klick</span><span>Ramp &middot; Save Time. Save Money.</span></div>
     </section>
 
@@ -103,25 +127,8 @@
 
 <div class="nav">&larr; &rarr; to navigate &middot; P to print</div>
 
-<script>
-    const slides = [...document.querySelectorAll('.slide')];
-    let i = 0;
-    function go(n) {
-        i = Math.max(0, Math.min(slides.length - 1, n));
-        slides[i].scrollIntoView({ behavior: 'smooth' });
-    }
-    addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(i + 1); }
-        if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(i - 1); }
-        if (e.key === 'Home') { e.preventDefault(); go(0); }
-        if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
-        if (e.key.toLowerCase() === 'p') { e.preventDefault(); print(); }
-    });
-    // Keep the index honest when the deck is scrolled by hand.
-    const spy = new IntersectionObserver((entries) => {
-        entries.forEach((en) => { if (en.isIntersecting) i = slides.indexOf(en.target); });
-    }, { threshold: 0.6 });
-    slides.forEach((s) => spy.observe(s));
-</script>
+<script src="room.js"></script>
+<script type="module" src="live.js"></script>
+<script src="deck.js"></script>
 </body>
 </html>

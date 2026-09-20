@@ -123,11 +123,119 @@ h3 {
 /* ---------- Hero number ---------- */
 
 .figure {
-    font-size: clamp(4rem, 12vw, 11rem);
+    font-size: clamp(4rem, 13vw, 12.5rem);
     font-weight: 700;
-    letter-spacing: -0.055em;
-    line-height: 0.9;
+    letter-spacing: -0.058em;
+    line-height: 0.86;
     font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+
+/* The number that moves while you present. */
+.figure .live-n { transition: color 400ms var(--ease); }
+
+/* ---------- The Room (signature motif) ---------- */
+
+.room-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+canvas[data-room] { width: 100%; height: 100%; display: block; }
+
+/* Anything that must sit above the motif. */
+.above { position: relative; z-index: 1; }
+
+/* Fades the field out behind text so the copy never fights the dots. */
+.room-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(
+        100deg,
+        var(--page) 0%,
+        rgba(238,236,233,0.94) 32%,
+        rgba(238,236,233,0.55) 56%,
+        rgba(238,236,233,0.1) 78%
+    );
+}
+
+.slide.dark .room-veil {
+    background: linear-gradient(
+        100deg,
+        var(--ink) 0%,
+        rgba(28,27,26,0.94) 32%,
+        rgba(28,27,26,0.55) 56%,
+        rgba(28,27,26,0.1) 78%
+    );
+}
+
+/* ---------- Live indicator ---------- */
+
+.livetag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-3);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 13px;
+}
+
+.livetag .bulb {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-3);
+    transition: background 400ms var(--ease);
+}
+
+.livetag .bulb.is-live {
+    background: var(--accent);
+    animation: bulb 2.4s var(--ease) infinite;
+}
+
+@keyframes bulb {
+    0%   { box-shadow: 0 0 0 0 rgba(201,123,69,0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(201,123,69,0); }
+    100% { box-shadow: 0 0 0 0 rgba(201,123,69,0); }
+}
+
+.slide.dark .livetag { border-color: rgba(252,251,250,0.2); color: rgba(252,251,250,0.5); }
+.slide.dark .livetag .bulb { background: rgba(252,251,250,0.35); }
+.slide.dark .livetag .bulb.is-live { background: var(--accent); }
+
+/* ---------- Staggered reveal ----------
+   Cheap version of the scroll-reveal idea: no library, no frame folder,
+   just per-slide entrance timing driven by an IntersectionObserver. */
+
+.slide [data-rise] {
+    opacity: 0;
+    transform: translateY(14px);
+}
+
+.slide.seen [data-rise] {
+    opacity: 1;
+    transform: none;
+    transition: opacity 620ms var(--ease), transform 620ms var(--ease);
+}
+
+.slide.seen [data-rise="1"] { transition-delay: 90ms; }
+.slide.seen [data-rise="2"] { transition-delay: 180ms; }
+.slide.seen [data-rise="3"] { transition-delay: 280ms; }
+.slide.seen [data-rise="4"] { transition-delay: 380ms; }
+.slide.seen [data-rise="5"] { transition-delay: 480ms; }
+
+@media (prefers-reduced-motion: reduce) {
+    .slide [data-rise] { opacity: 1; transform: none; transition: none; }
 }
 
 .figure-sub {
@@ -254,6 +362,8 @@ h3 {
         padding: 64px 88px;
     }
     .nav { display: none !important; }
+    /* Reveals must never hide content in an exported PDF. */
+    .slide [data-rise] { opacity: 1 !important; transform: none !important; }
 }
 
 /* ---------- Screen nav hint ---------- */

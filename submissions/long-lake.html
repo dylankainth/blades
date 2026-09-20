@@ -5,29 +5,100 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Klick — Long Lake: Convince a Non-Believer</title>
 <link rel="stylesheet" href="deck.css">
+<style>
+    /* The redacted card — this slide's whole argument is a thing we
+       deliberately will not show you, so it has to look like a real
+       artefact with the contents genuinely withheld, not a mockup. */
+    .redact {
+        margin-top: 4vh;
+        display: grid;
+        grid-template-columns: 1.15fr 1fr;
+        gap: 2.4vw;
+        align-items: stretch;
+    }
+
+    .redact-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2.6vh 1.9vw;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .redact-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.13em;
+        color: var(--text-3);
+        padding-bottom: 1.6vh;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .redact-head .bulb {
+        width: 6px; height: 6px; border-radius: 50%;
+        background: var(--text-3);
+        transition: background 400ms var(--ease);
+    }
+    .redact-head .bulb.is-live { background: var(--accent); }
+
+    /* Blurred-out "lines of transcript" that were never sent to this page. */
+    .bar {
+        height: 11px;
+        border-radius: 6px;
+        background: var(--inset);
+        margin-top: 1.5vh;
+        filter: blur(3px);
+    }
+    .bar.w90 { width: 90%; } .bar.w75 { width: 75%; }
+    .bar.w82 { width: 82%; } .bar.w60 { width: 60%; }
+
+    .redact-stamp {
+        margin-top: 2.6vh;
+        padding-top: 1.8vh;
+        border-top: 1px solid var(--border);
+        font-size: 0.82rem;
+        line-height: 1.55;
+        color: var(--text-2);
+    }
+
+    .redact-note {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+</style>
 </head>
 <body>
 <div class="deck">
 
     <!-- 1 ─────────────────────────────────────────────── -->
-    <section class="slide textured">
-        <div class="eyebrow">Long Lake &middot; Convince a Non-Believer</div>
-        <h1>The skeptic<br>is not wrong.</h1>
-        <div class="rule"></div>
-        <p class="lede">
-            Most AI social products have earned the eye-roll. We built the one
-            that answers it.
-        </p>
+    <section class="slide">
+        <div class="room-wrap"><canvas data-room data-dots="1000" data-links="4"></canvas></div>
+        <div class="room-veil"></div>
+        <div class="above">
+            <div class="eyebrow" data-rise="1">Long Lake &middot; Convince a Non-Believer</div>
+            <h1 data-rise="2">The skeptic<br>is not wrong.</h1>
+            <div class="rule" data-rise="3"></div>
+            <p class="lede" data-rise="4">
+                Most AI social products have earned the eye-roll. We built the one
+                that answers it.
+            </p>
+        </div>
         <div class="foot"><span class="brand">Klick</span><span>HackMIT 2026</span></div>
     </section>
 
     <!-- 2 ─────────────────────────────────────────────── -->
     <section class="slide dark">
-        <div class="eyebrow">The objection, said plainly</div>
-        <div class="quote">
+        <div class="eyebrow" data-rise="1">The objection, said plainly</div>
+        <div class="quote" data-rise="2">
             &ldquo;I don&rsquo;t want a bot deciding who my friends are.&rdquo;
         </div>
-        <div class="quote-attr">
+        <div class="quote-attr" data-rise="3">
             &mdash; every reasonable person who has watched an AI product
             try to automate a relationship
         </div>
@@ -36,39 +107,75 @@
 
     <!-- 3 ─────────────────────────────────────────────── -->
     <section class="slide">
-        <div class="eyebrow">What we refused to build</div>
-        <h2>The twins never decide.<br>They do the awkward part.</h2>
-        <p class="lede" style="max-width: 56ch;">
-            Filtering a thousand strangers, saying the honest thing, admitting
+        <div class="eyebrow" data-rise="1">What we refused to build</div>
+        <h2 data-rise="2">The twins never decide.<br>They do the awkward part.</h2>
+        <p class="lede" data-rise="3" style="max-width: 56ch;">
+            Filtering a thousand strangers, surfacing shared context, admitting
             when there is no real reason to meet &mdash; the invisible labour
             people avoid. Then they hand the connection back to a human and
             get out of the way.
         </p>
-        <p class="lede" style="max-width: 56ch; color: var(--text); font-weight: 500; margin-top: 2.4vh;">
+        <p class="lede" data-rise="4" style="max-width: 56ch; color: var(--text); font-weight: 500; margin-top: 2.4vh;">
             &ldquo;Your twins found a reason &mdash; here it is, want to say hi?&rdquo;
             beats &ldquo;your twins already introduced you.&rdquo;
         </p>
         <div class="foot"><span class="brand">Klick</span><span>The design rule</span></div>
     </section>
 
-    <!-- 4 ─────────────────────────────────────────────── -->
+    <!-- 4 ───────────────────────────────────────────────
+         The slide that does the work: rather than claiming we protect a
+         dismissed pairing, show a real one and show that the contents
+         genuinely are not here. -->
     <section class="slide">
-        <div class="eyebrow">Proof, not promise</div>
-        <h2 style="margin-bottom: 1vh;">Every guardrail is<br>something you can watch.</h2>
+        <div class="eyebrow" data-rise="1">Proof, not promise</div>
+        <h2 data-rise="2" style="max-width: 24ch;">Here is a real negotiation<br>we will not show you.</h2>
+        <div class="redact">
+            <div class="redact-card" data-rise="3">
+                <div class="redact-head">
+                    <span class="bulb" data-live-dot data-live-dismissal></span>
+                    Dismissed pairing &middot; from our live database
+                </div>
+                <div class="bar w90"></div>
+                <div class="bar w75"></div>
+                <div class="bar w82"></div>
+                <div class="bar w60"></div>
+                <div class="redact-stamp">
+                    Two twins talked and decided there was no real reason for these
+                    people to meet. The names, the reasoning and the transcript are
+                    not withheld from <em>this slide</em> &mdash; they were never
+                    written anywhere a third party can read.
+                </div>
+            </div>
+            <div class="redact-note" data-rise="4">
+                <h3 style="margin-bottom: 1.8vh;">Anyone can check this.</h3>
+                <p style="font-size: clamp(0.88rem,1.05vw,1rem); line-height:1.6; color: var(--text-2);">
+                    Open our judge dashboard and click any dismissed negotiation.
+                    It tells you, in as many words, why it is not going to show you
+                    what the twins said.
+                </p>
+                <p style="font-size: clamp(0.88rem,1.05vw,1rem); line-height:1.6; color: var(--text-2); margin-top:1.6vh;">
+                    A privacy claim you can falsify in one click is worth more than
+                    a paragraph in a pitch.
+                </p>
+            </div>
+        </div>
+        <div class="foot"><span class="brand">Klick</span><span>Try it yourself</span></div>
+    </section>
+
+    <!-- 5 ─────────────────────────────────────────────── -->
+    <section class="slide">
+        <div class="eyebrow" data-rise="1">The other three</div>
+        <h2 data-rise="2" style="margin-bottom: 1vh;">Every guardrail is<br>something you can watch.</h2>
         <div class="claims">
-            <div class="claim">
+            <div class="claim" data-rise="3">
                 <div class="lhs">A reason, never a score</div>
-                <div class="rhs">The output is one plain sentence about why two people should talk. No percentage, no &ldquo;87% match&rdquo; &mdash; the reasoning <em>is</em> the product.</div>
+                <div class="rhs">The output is one plain sentence about why two people should talk. No percentage, no &ldquo;87% match&rdquo; &mdash; the reasoning <em>is</em> the product, and it gets the biggest type on the screen.</div>
             </div>
-            <div class="claim">
-                <div class="lhs">Dismissals stay private</div>
-                <div class="rhs">When twins decide there is no real reason to meet, the names, reasoning and transcript are never published &mdash; not even to judges. Open the dashboard and try.</div>
-            </div>
-            <div class="claim">
+            <div class="claim" data-rise="4">
                 <div class="lhs">Both sides approve before names appear</div>
-                <div class="rhs">Identity is anonymised until two people have each said yes. A twin cannot expose you to someone you did not agree to meet.</div>
+                <div class="rhs">Identity stays anonymised until two people have each said yes. A twin cannot expose you to someone you did not agree to meet.</div>
             </div>
-            <div class="claim">
+            <div class="claim" data-rise="5">
                 <div class="lhs">&ldquo;Say hi&rdquo; is a human tap</div>
                 <div class="rhs">Nothing is ever sent on your behalf. No auto-generated intro, no auto-booked meeting, no message you did not write.</div>
             </div>
@@ -76,15 +183,19 @@
         <div class="foot"><span class="brand">Klick</span><span>Built in, not bolted on</span></div>
     </section>
 
-    <!-- 5 ─────────────────────────────────────────────── -->
-    <section class="slide textured">
-        <div class="eyebrow">The ask</div>
-        <h2 style="max-width: 22ch;">Ninety seconds.<br>One person you&rsquo;d have walked past.</h2>
-        <p class="lede">
-            The skeptic does not need to believe in AI. They need one specific,
-            true reason to talk to the person standing near them &mdash; and to
-            still be the one who decides.
-        </p>
+    <!-- 6 ─────────────────────────────────────────────── -->
+    <section class="slide">
+        <div class="room-wrap"><canvas data-room data-dots="900" data-links="3"></canvas></div>
+        <div class="room-veil"></div>
+        <div class="above">
+            <div class="eyebrow" data-rise="1">The ask</div>
+            <h2 data-rise="2" style="max-width: 22ch;">Ninety seconds.<br>One person you&rsquo;d have walked past.</h2>
+            <p class="lede" data-rise="3">
+                The skeptic does not need to believe in AI. They need one specific,
+                true reason to talk to the person standing near them &mdash; and to
+                still be the one who decides.
+            </p>
+        </div>
         <div class="foot"><span class="brand">Klick</span><span>Long Lake &middot; Convince a Non-Believer</span></div>
     </section>
 
@@ -92,24 +203,8 @@
 
 <div class="nav">&larr; &rarr; to navigate &middot; P to print</div>
 
-<script>
-    const slides = [...document.querySelectorAll('.slide')];
-    let i = 0;
-    function go(n) {
-        i = Math.max(0, Math.min(slides.length - 1, n));
-        slides[i].scrollIntoView({ behavior: 'smooth' });
-    }
-    addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(i + 1); }
-        if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(i - 1); }
-        if (e.key === 'Home') { e.preventDefault(); go(0); }
-        if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
-        if (e.key.toLowerCase() === 'p') { e.preventDefault(); print(); }
-    });
-    const spy = new IntersectionObserver((entries) => {
-        entries.forEach((en) => { if (en.isIntersecting) i = slides.indexOf(en.target); });
-    }, { threshold: 0.6 });
-    slides.forEach((s) => spy.observe(s));
-</script>
+<script src="room.js"></script>
+<script type="module" src="live.js"></script>
+<script src="deck.js"></script>
 </body>
 </html>

@@ -7,7 +7,7 @@ Decks and paste-ready copy for the tracks that need no code.
 | File | Track | Slides |
 |---|---|---|
 | `ramp.html` | Ramp — Save Time. Save Money. | 5 |
-| `long-lake.html` | Long Lake — Convince a Non-Believer | 5 |
+| `long-lake.html` | Long Lake — Convince a Non-Believer | 6 |
 
 Built on the same tokens as the Android app (`ui/theme/Color.kt`) and the judge
 dashboard, so a deck on the projector and the phone in your hand read as one product.
@@ -16,9 +16,29 @@ dashboard, so a deck on the projector and the phone in your hand read as one pro
 **Export PDF:** press `P`, or Print → Landscape → Margins: None → **Background
 graphics: ON** → Save as PDF.
 
-> ⚠️ Slide 3 of `ramp.html` hardcodes **19** negotiations. Update it to whatever the
-> judge dashboard shows before you present — the whole slide is that comparison, and a
-> stale number is the one thing a judge might check.
+### Two things that make these not-a-normal-deck
+
+**1. The Room** (`room.js`) — the motif on the title and closing slides. A thousand
+faint dots, then every possible introduction between them as an unreadable hairball,
+which burns off to leave the handful of amber connections that actually happened. It is
+the `499,500 → 19` argument as motion rather than as a bullet, and it is specific to
+this product in a way a stock gradient isn't. Replays each time the slide comes into
+view, so it lands again if you walk back to it during Q&A.
+
+**2. Live numbers** (`live.js`) — the Ramp hero slide reads its count off the same
+`judge_feed` collection the judge dashboard does, **live, while you present**. If a
+negotiation happens mid-pitch the number moves on the screen. Long Lake's proof slide
+lights its indicator only once a real dismissed pairing is confirmed in the database.
+
+> **The numbers written in the HTML are the fallback, and they are correct on their
+> own.** If the venue wifi dies, Firestore is slow, or anonymous auth gets rate-limited,
+> every figure keeps its static value and the "live" bulb simply stays grey — you get a
+> normal, accurate deck. Nothing on screen breaks, and nothing claims to be live when it
+> isn't. **This is why there is no longer a hardcoded number to remember to update.**
+
+Reduced-motion is respected throughout: the motif renders its end state directly and
+the entrance stagger is disabled. Printing forces every reveal visible, so an exported
+PDF never captures a half-played animation.
 
 ---
 
