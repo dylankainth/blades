@@ -296,6 +296,17 @@ private fun AppNavHost(
                         popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
                 },
+                onBack = {
+                    AuthManager.signOut()
+                    navController.navigate(Routes.WELCOME) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    }
+                },
+                onSkip = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Routes.HOME) {

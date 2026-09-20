@@ -3,6 +3,12 @@ package com.hackmit.twins.onboarding
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
@@ -78,7 +84,13 @@ data class ChatMessage(val fromUser: Boolean, val text: String)
 fun OnboardingScreen(
     twinId: String,
     onOnboardingComplete: () -> Unit,
+    onBack: () -> Unit,
+    onSkip: () -> Unit,
 ) {
+    // Onboarding is the root of the back stack once you're signed in, so
+    // without this the system back gesture just closes the app.
+    BackHandler(onBack = onBack)
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -147,6 +159,21 @@ fun OnboardingScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Build your twin") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to sign in",
+                        )
+                    }
+                },
+                actions = {
+                    // Never trap someone in a chat: the twin is thinner without
+                    // it, but they can come back (next launch returns here).
+                    TextButton(onClick = onSkip) {
+                        Text("Skip for now", color = KlickColors.TextSecondary)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = KlickColors.PageBackground,
                 ),

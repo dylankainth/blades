@@ -29,6 +29,9 @@ object AuthManager {
     /** Non-suspending accessor for call sites that know sign-in already happened. */
     fun currentTwinIdOrNull(): String? = auth.currentUser?.uid
 
+    /** Drops the Firebase session so Welcome can offer a different account. */
+    fun signOut() = auth.signOut()
+
     suspend fun signInWithEmail(email: String, password: String): String {
         val result = auth.signInWithEmailAndPassword(email, password).await()
         return requireNotNull(result.user?.uid) { "Sign-in returned no user" }
