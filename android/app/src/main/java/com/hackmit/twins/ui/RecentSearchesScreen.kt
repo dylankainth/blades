@@ -106,14 +106,21 @@ fun RecentSearchesScreen(
 @Composable
 private fun RecentSearchRow(item: MatchFeedItem, onClick: () -> Unit) {
     val isConfirmed = item.status == "confirmed"
+    val isRevealed = item.revealStatus == "revealed"
     // Deliberate: even though the owner's own device can technically read
     // the real name/photo for a dismissed pairing (see MatchFeedRepository
     // — matches/{matchId} is participant-readable), we don't surface it as
     // a headline here. A "Someone nearby" you weren't matched with doesn't
-    // need to be identified, even to you. Real identity only appears once
-    // there's an actual confirmed match to act on.
-    val displayName = if (isConfirmed) item.otherName else "Someone nearby"
-    val displayPhotoUrl = if (isConfirmed) item.otherPhotoUrl else null
+    // need to be identified, even to you. A confirmed match still keeps the
+    // name hidden until both people have passed the human-approval gate on
+    // the Match Teaser screen (revealStatus == "revealed") — otherwise this
+    // list would leak the identity the Teaser screen deliberately blurs.
+    val displayName = when {
+        isRevealed -> item.otherName
+        isConfirmed -> "Someone new"
+        else -> "Someone nearby"
+    }
+    val displayPhotoUrl = if (isRevealed) item.otherPhotoUrl else null
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -137,7 +144,7 @@ private fun RecentSearchRow(item: MatchFeedItem, onClick: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = if (isConfirmed) displayName.take(1).uppercase() else "?",
+                        text = if (isRevealed) displayName.take(1).uppercase() else "?",
                         color = Bg,
                         style = MaterialTheme.typography.labelLarge,
                     )
