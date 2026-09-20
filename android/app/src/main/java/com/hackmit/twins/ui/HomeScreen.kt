@@ -31,7 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.delay
 
 /** Rotates below "Working quietly" — small, warm status lines rather than
@@ -64,12 +64,12 @@ private val SPLASH_MESSAGES = listOf(
 @Composable
 fun HomeScreen(onShowRecent: () -> Unit) {
     Scaffold(
-        containerColor = KindredColors.PageBackground,
+        containerColor = KlickColors.PageBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Kindred") },
+                title = { Text("Klick") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KindredColors.PageBackground,
+                    containerColor = KlickColors.PageBackground,
                 ),
             )
         },
@@ -84,14 +84,14 @@ fun HomeScreen(onShowRecent: () -> Unit) {
                 Text(
                     text = "Actively engaging nearby",
                     style = MaterialTheme.typography.titleMedium,
-                    color = KindredColors.TextPrimary,
+                    color = KlickColors.TextPrimary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 40.dp),
                 )
                 Text(
                     text = "Working quietly",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = KindredColors.TextSecondary,
+                    color = KlickColors.TextSecondary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 6.dp),
                 )
@@ -112,7 +112,7 @@ fun HomeScreen(onShowRecent: () -> Unit) {
                     Text(
                         text = SPLASH_MESSAGES[index],
                         style = MaterialTheme.typography.bodyLarge,
-                        color = KindredColors.TextSecondary,
+                        color = KlickColors.TextSecondary,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -128,13 +128,13 @@ fun HomeScreen(onShowRecent: () -> Unit) {
                 Text(
                     text = "Check my recent searches",
                     style = MaterialTheme.typography.labelLarge,
-                    color = KindredColors.TextSecondary,
+                    color = KlickColors.TextSecondary,
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Icon(
                     imageVector = Icons.Filled.KeyboardArrowDown,
                     contentDescription = "Swipe down for recent searches",
-                    tint = KindredColors.TextSecondary,
+                    tint = KlickColors.TextSecondary,
                 )
             }
         }

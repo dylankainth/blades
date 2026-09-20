@@ -45,7 +45,7 @@ private val Surface = Color(0xFF161616)
 private val Border = Color(0xFF2E2E2E)
 private val TextPrimary = Color.White
 private val TextSecondary = Color(0xFFA0A0A0)
-private val Accent = Color(0xFFE0985C) // same amber family as KindredColors.Accent, brightened for a dark bg
+private val Accent = Color(0xFFE0985C) // same amber family as KlickColors.Accent, brightened for a dark bg
 
 @Composable
 fun RecentSearchesScreen(

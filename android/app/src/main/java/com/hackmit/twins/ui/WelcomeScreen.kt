@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.KlickColors
 import com.hackmit.twins.ui.theme.SpaceGroteskFamily
 
 /**
@@ -50,20 +50,20 @@ fun WelcomeScreen(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            KindredColors.TextSecondary,
-                            KindredColors.TextPrimary,
+                            KlickColors.TextSecondary,
+                            KlickColors.TextPrimary,
                         ),
                     ),
                 ),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "Kindred",
+                text = "Klick",
                 fontFamily = SpaceGroteskFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 56.sp,
                 letterSpacing = (-0.03).em,
-                color = KindredColors.OnDark,
+                color = KlickColors.OnDark,
             )
         }
 
@@ -71,7 +71,7 @@ fun WelcomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(0.32f)
-                .background(KindredColors.PageBackground)
+                .background(KlickColors.PageBackground)
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         ) {
@@ -81,8 +81,8 @@ fun WelcomeScreen(
                 shape = RoundedCornerShape(16.dp),
                 contentPadding = PaddingValues(vertical = 18.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = KindredColors.TextPrimary,
-                    contentColor = KindredColors.OnDark,
+                    containerColor = KlickColors.TextPrimary,
+                    contentColor = KlickColors.OnDark,
                 ),
             ) {
                 Text("Build your twin", style = MaterialTheme.typography.titleMedium)
@@ -93,9 +93,9 @@ fun WelcomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 contentPadding = PaddingValues(vertical = 18.dp),
-                border = BorderStroke(1.5.dp, KindredColors.TextPrimary),
+                border = BorderStroke(1.5.dp, KlickColors.TextPrimary),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = KindredColors.TextPrimary,
+                    contentColor = KlickColors.TextPrimary,
                 ),
             ) {
                 Text("I've already got one", style = MaterialTheme.typography.titleMedium)

@@ -31,7 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.hackmit.twins.ble.BleProximityService
-import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.KlickColors
 
 /**
  * Both people approved — real identity is fully revealed here (unlike
@@ -67,7 +67,7 @@ fun RadarScreen(
         else -> "Still far — keep moving"
     }
 
-    Scaffold(containerColor = KindredColors.PageBackground) { padding ->
+    Scaffold(containerColor = KlickColors.PageBackground) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -84,16 +84,16 @@ fun RadarScreen(
                         .padding(top = 8.dp)
                         .size(64.dp)
                         .clip(CircleShape)
-                        .background(KindredColors.TextPrimary),
+                        .background(KlickColors.TextPrimary),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Filled.Person, contentDescription = null, tint = KindredColors.OnDark)
+                    Icon(Icons.Filled.Person, contentDescription = null, tint = KlickColors.OnDark)
                 }
             }
             Text(
                 text = otherName,
                 style = MaterialTheme.typography.headlineLarge,
-                color = KindredColors.TextPrimary,
+                color = KlickColors.TextPrimary,
                 modifier = Modifier.padding(top = 10.dp),
             )
 
@@ -104,13 +104,13 @@ fun RadarScreen(
             Text(
                 text = statusText,
                 style = MaterialTheme.typography.titleMedium,
-                color = KindredColors.TextPrimary,
+                color = KlickColors.TextPrimary,
                 textAlign = TextAlign.Center,
             )
             Text(
                 text = "Signal strength only — not exact distance or direction.",
                 style = MaterialTheme.typography.bodySmall,
-                color = KindredColors.TextSecondary,
+                color = KlickColors.TextSecondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
             )
@@ -132,7 +132,7 @@ private fun RadarRings(closeness: Float) {
             val radius = maxRadius * (0.35f + (i + 1) * 0.2f * spread)
             val alpha = (0.5f - i * 0.12f).coerceIn(0.08f, 0.5f)
             drawCircle(
-                color = KindredColors.TextPrimary.copy(alpha = alpha),
+                color = KlickColors.TextPrimary.copy(alpha = alpha),
                 radius = radius,
                 center = center,
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f),
@@ -141,7 +141,7 @@ private fun RadarRings(closeness: Float) {
         // Center dot brightens/grows with closeness.
         val dotRadius = maxRadius * (0.08f + closeness * 0.10f)
         drawCircle(
-            color = if (closeness > 0.55f) KindredColors.Accent else KindredColors.TextPrimary,
+            color = if (closeness > 0.55f) KlickColors.Accent else KlickColors.TextPrimary,
             radius = dotRadius,
             center = center,
         )

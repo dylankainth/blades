@@ -37,7 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.launch
 
 /**
@@ -92,11 +92,11 @@ fun MatchTeaserScreen(
         }
     }
 
-    Scaffold(containerColor = KindredColors.PageBackground) { padding ->
+    Scaffold(containerColor = KlickColors.PageBackground) { padding ->
         val d = detail
         if (d == null) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = KindredColors.TextPrimary)
+                CircularProgressIndicator(color = KlickColors.TextPrimary)
             }
             return@Scaffold
         }
@@ -108,9 +108,9 @@ fun MatchTeaserScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "Kindred found someone",
+                text = "Klick found someone",
                 style = MaterialTheme.typography.labelLarge,
-                color = KindredColors.Accent,
+                color = KlickColors.Accent,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -126,13 +126,13 @@ fun MatchTeaserScreen(
                         .padding(top = 16.dp)
                         .size(140.dp)
                         .clip(CircleShape)
-                        .background(KindredColors.TextPrimary),
+                        .background(KlickColors.TextPrimary),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Person,
                         contentDescription = null,
-                        tint = KindredColors.OnDark,
+                        tint = KlickColors.OnDark,
                         modifier = Modifier.size(56.dp),
                     )
                 }
@@ -142,7 +142,7 @@ fun MatchTeaserScreen(
             Text(
                 text = d.otherName,
                 style = MaterialTheme.typography.headlineLarge,
-                color = KindredColors.TextPrimary,
+                color = KlickColors.TextPrimary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 14.dp).blur(14.dp),
             )
@@ -151,7 +151,7 @@ fun MatchTeaserScreen(
                 Text(
                     text = d.reason,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = KindredColors.TextSecondary,
+                    color = KlickColors.TextSecondary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 10.dp),
                 )
@@ -162,7 +162,7 @@ fun MatchTeaserScreen(
                 Text(
                     text = d.summary,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = KindredColors.TextPrimary,
+                    color = KlickColors.TextPrimary,
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 )
             }
@@ -172,7 +172,7 @@ fun MatchTeaserScreen(
                 Text(
                     text = d.interests.joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = KindredColors.TextPrimary,
+                    color = KlickColors.TextPrimary,
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 )
             }
@@ -181,13 +181,13 @@ fun MatchTeaserScreen(
 
             if (waitingOnOther) {
                 CircularProgressIndicator(
-                    color = KindredColors.TextPrimary,
+                    color = KlickColors.TextPrimary,
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
                 Text(
                     text = "Waiting for them to respond too...",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = KindredColors.TextSecondary,
+                    color = KlickColors.TextSecondary,
                     textAlign = TextAlign.Center,
                 )
             } else {
@@ -201,7 +201,7 @@ fun MatchTeaserScreen(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(16.dp),
                         contentPadding = PaddingValues(vertical = 16.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = KindredColors.TextSecondary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = KlickColors.TextSecondary),
                     ) {
                         Text("Not this time", style = MaterialTheme.typography.labelLarge)
                     }
@@ -212,8 +212,8 @@ fun MatchTeaserScreen(
                         shape = RoundedCornerShape(16.dp),
                         contentPadding = PaddingValues(vertical = 16.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = KindredColors.TextPrimary,
-                            contentColor = KindredColors.OnDark,
+                            containerColor = KlickColors.TextPrimary,
+                            contentColor = KlickColors.OnDark,
                         ),
                     ) {
                         Text("I'm in", style = MaterialTheme.typography.labelLarge)
@@ -229,7 +229,7 @@ private fun SectionLabel(text: String, topPadding: androidx.compose.ui.unit.Dp) 
     Text(
         text = text,
         style = MaterialTheme.typography.labelLarge,
-        color = KindredColors.TextSecondary,
+        color = KlickColors.TextSecondary,
         modifier = Modifier.fillMaxWidth().padding(top = topPadding),
     )
 }
