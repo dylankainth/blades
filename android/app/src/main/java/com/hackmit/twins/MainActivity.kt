@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.core.os.bundleOf
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -69,6 +70,38 @@ private object Routes {
 private sealed class PendingNav {
     data class Teaser(val matchId: String) : PendingNav()
     data class Radar(val otherTwinId: String, val otherName: String, val otherPhotoUrl: String?) : PendingNav()
+
+    fun toBundle(): Bundle = when (this) {
+        is Teaser -> bundleOf(KEY_KIND to KIND_TEASER, KEY_MATCH_ID to matchId)
+        is Radar -> bundleOf(
+            KEY_KIND to KIND_RADAR,
+            KEY_OTHER_TWIN_ID to otherTwinId,
+            KEY_OTHER_NAME to otherName,
+            KEY_OTHER_PHOTO_URL to otherPhotoUrl,
+        )
+    }
+
+    companion object {
+        private const val KEY_KIND = "kind"
+        private const val KEY_MATCH_ID = "matchId"
+        private const val KEY_OTHER_TWIN_ID = "otherTwinId"
+        private const val KEY_OTHER_NAME = "otherName"
+        private const val KEY_OTHER_PHOTO_URL = "otherPhotoUrl"
+        private const val KIND_TEASER = "teaser"
+        private const val KIND_RADAR = "radar"
+
+        fun fromBundle(bundle: Bundle?): PendingNav? = when (bundle?.getString(KEY_KIND)) {
+            KIND_TEASER -> bundle.getString(KEY_MATCH_ID)?.let { Teaser(it) }
+            KIND_RADAR -> bundle.getString(KEY_OTHER_TWIN_ID)?.let { otherTwinId ->
+                Radar(
+                    otherTwinId = otherTwinId,
+                    otherName = bundle.getString(KEY_OTHER_NAME) ?: "Someone nearby",
+                    otherPhotoUrl = bundle.getString(KEY_OTHER_PHOTO_URL),
+                )
+            }
+            else -> null
+        }
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -109,9 +142,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Only a fresh launch: a recreated Activity still holds the old intent
-        // and would reopen a teaser the user has already dealt with.
-        if (savedInstanceState == null) pendingNav = extractPendingNav(intent)
+        // A recreated Activity (process death, config change) still holds the
+        // old intent, which would reopen a teaser the user has already dealt
+        // with. Take what was actually open from the saved state instead: the
+        // NavController restores the Teaser/Radar route by itself, and that
+        // route has nothing to show without its pendingNav.
+        pendingNav = if (savedInstanceState == null) {
+            extractPendingNav(intent)
+        } else {
+            PendingNav.fromBundle(savedInstanceState.getBundle(STATE_PENDING_NAV))
+        }
 
         setContent {
             DigitalTwinsTheme {
@@ -139,6 +179,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBundle(STATE_PENDING_NAV, pendingNav?.toBundle())
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -236,6 +281,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_MATCHED_NAME = "matchedName"
         const val EXTRA_MATCHED_PHOTO_URL = "matchedPhotoUrl"
 
+        private const val STATE_PENDING_NAV = "pendingNav"
         private const val PUSH_KEY_ACTION = "action"
         private const val PUSH_ACTION_OPEN_TEASER = "open_teaser"
         private const val PUSH_ACTION_OPEN_RADAR = "open_radar"

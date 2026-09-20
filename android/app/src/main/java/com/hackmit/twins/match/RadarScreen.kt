@@ -1,5 +1,6 @@
 package com.hackmit.twins.match
 
+import android.os.SystemClock
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -46,6 +47,13 @@ import kotlinx.coroutines.delay
 private const val MET_DISMISS_MS = 3_500L
 
 /**
+ * The first snapshot can be a stale cached copy from before the pair met, with
+ * the server's copy right behind it. A "met" that lands this soon after opening
+ * is that correction, not two people shaking badges.
+ */
+private const val STALE_CACHE_GRACE_MS = 1_500L
+
+/**
  * Both people approved — real identity is fully revealed here (unlike
  * MatchTeaserScreen's blurred name), plus a live "find each other" radar
  * driven by the other person's real BLE signal strength (RSSI), not a
@@ -56,7 +64,8 @@ private const val MET_DISMISS_MS = 3_500L
  *
  * Once the pair shakes their badges the backend sets matches/{id}.metAt; the
  * radar then confirms it and closes itself via [onMet], since there is
- * nobody left to find.
+ * nobody left to find. Opened from the feed for a pair that had already met,
+ * it just says so and stays until the user goes back.
  */
 @Composable
 fun RadarScreen(
@@ -67,19 +76,28 @@ fun RadarScreen(
     onMet: () -> Unit,
 ) {
     var met by remember { mutableStateOf(false) }
+    // Null until the first snapshot arrives. Only a meeting that happens while
+    // this screen is open closes it; one that predates it would otherwise shut
+    // the radar the moment it was reopened.
+    var metBeforeOpen by remember { mutableStateOf<Boolean?>(null) }
+    val openedAtMs = remember { SystemClock.elapsedRealtime() }
     DisposableEffect(myTwinId, otherTwinId) {
         // Same id the backend derives in negotiateTwins.ts: both twin ids, sorted.
         val matchId = listOf(myTwinId, otherTwinId).sorted().joinToString("_")
         val registration = MatchDetailRepository.listen(matchId, myTwinId) { detail ->
-            if (detail?.met == true) met = true
+            val isMet = detail?.met == true
+            val withinGrace = SystemClock.elapsedRealtime() - openedAtMs < STALE_CACHE_GRACE_MS
+            if (metBeforeOpen == null || (isMet && !met && withinGrace)) metBeforeOpen = isMet
+            if (isMet) met = true
         }
         onDispose { registration.remove() }
     }
+    val metJustNow = met && metBeforeOpen == false
 
     val haptics = LocalHapticFeedback.current
     val currentOnMet by rememberUpdatedState(onMet)
-    LaunchedEffect(met) {
-        if (!met) return@LaunchedEffect
+    LaunchedEffect(metJustNow) {
+        if (!metJustNow) return@LaunchedEffect
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         delay(MET_DISMISS_MS)
         currentOnMet()
@@ -146,8 +164,10 @@ fun RadarScreen(
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = if (met) {
+                text = if (metJustNow) {
                     "Marked as met. Closing this match."
+                } else if (met) {
+                    "You two have already met."
                 } else {
                     "Signal strength only — not exact distance or direction."
                 },

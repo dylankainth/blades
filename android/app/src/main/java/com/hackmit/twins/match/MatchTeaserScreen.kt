@@ -37,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -167,7 +169,11 @@ fun MatchTeaserScreen(
                             text = d.otherName,
                             style = MaterialTheme.typography.titleLarge,
                             color = KlickColors.TextPrimary,
-                            modifier = Modifier.blur(11.dp),
+                            // Blur only hides pixels; without this a screen
+                            // reader reads the real name out before approval.
+                            modifier = Modifier
+                                .blur(11.dp)
+                                .clearAndSetSemantics { contentDescription = "Name hidden" },
                         )
                         Text(
                             text = "Name unlocks when you both say yes",
