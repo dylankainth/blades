@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
@@ -71,6 +72,7 @@ private val ButtonPadding = PaddingValues(vertical = 18.dp)
 
 /** Long enough for the IME to finish resizing the window before we scroll. */
 private const val KEYBOARD_SETTLE_MS = 320L
+private const val COMPACT_BELOW_HEIGHT_DP = 700
 
 /**
  * Shared layout for SignInScreen/SignUpScreen: the Klick creature and a
@@ -139,6 +141,12 @@ internal fun AuthFormScreen(
         // when there is room and let it follow the form when there is not
         // (weight() cannot do this inside a scrolling column).
         BoxWithConstraints(modifier = Modifier.fillMaxSize().imePadding()) {
+        // Short screens (older ~640dp-tall phones): shrink the hero and drop
+        // the subtitle so both sign-in routes fit without scrolling. Judged on
+        // the full screen height, not the space left above the keyboard, so
+        // the layout does not jump when a field is focused.
+        val compact = LocalConfiguration.current.screenHeightDp < COMPACT_BELOW_HEIGHT_DP
+        val gap = if (compact) 12.dp else 24.dp
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -163,23 +171,32 @@ internal fun AuthFormScreen(
 
             RiseIn(index = 0) {
                 // Start inset: the mascot's rings and dots draw past its bounds.
-                ListeningAvatar(size = 84.dp, modifier = Modifier.padding(top = 24.dp, start = 14.dp))
+                ListeningAvatar(
+                    size = if (compact) 56.dp else 84.dp,
+                    modifier = Modifier.padding(top = gap, start = 14.dp),
+                )
             }
 
             RiseIn(index = 1) {
                 Column {
                     Text(
                         text = headline,
-                        style = MaterialTheme.typography.headlineLarge,
+                        style = if (compact) {
+                            MaterialTheme.typography.headlineMedium
+                        } else {
+                            MaterialTheme.typography.headlineLarge
+                        },
                         color = KlickColors.TextPrimary,
-                        modifier = Modifier.padding(top = 28.dp),
+                        modifier = Modifier.padding(top = gap),
                     )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = KlickColors.TextSecondary,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
+                    if (!compact) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = KlickColors.TextSecondary,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                 }
             }
 
@@ -209,7 +226,7 @@ internal fun AuthFormScreen(
                 colors = fieldColors,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 32.dp)
+                    .padding(top = if (compact) 16.dp else 32.dp)
                     .onFocusChanged { if (it.isFocused) revealSubmit() },
             )
 
@@ -294,7 +311,7 @@ internal fun AuthFormScreen(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = if (compact) 12.dp else 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 HorizontalDivider(modifier = Modifier.weight(1f), color = KlickColors.Border)
@@ -332,7 +349,7 @@ internal fun AuthFormScreen(
           }
 
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = if (compact) 8.dp else 24.dp, bottom = if (compact) 4.dp else 16.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
