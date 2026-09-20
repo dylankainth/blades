@@ -133,6 +133,8 @@ fun OnboardingScreen(
     var contextError by remember { mutableStateOf<String?>(null) }
     var isListening by remember { mutableStateOf(false) }
     var isTranscribing by remember { mutableStateOf(false) }
+    // You talked to it, so it talks back once your context is saved.
+    var usedVoice by remember { mutableStateOf(false) }
 
     fun startListening() {
         try {
@@ -164,6 +166,12 @@ fun OnboardingScreen(
                     .await()
                 contextConnected = true
                 showContextDialog = false
+                if (usedVoice) {
+                    VoiceRepository.speakInBackground(
+                        context,
+                        "Got it. I'll keep an eye out for people worth meeting, and only interrupt you when it counts.",
+                    )
+                }
             } catch (e: Exception) {
                 contextError = "Couldn't save that just now — mind trying again? (${e.message})"
             } finally {
@@ -448,6 +456,7 @@ fun OnboardingScreen(
                                         Toast.makeText(context, "Didn't catch that.", Toast.LENGTH_SHORT).show()
                                     } else {
                                         textDump = listOf(textDump.trim(), heard).filter { it.isNotEmpty() }.joinToString(" ")
+                                        usedVoice = true
                                     }
                                 } catch (e: CancellationException) {
                                     throw e
