@@ -21,6 +21,12 @@ export interface CallMetaModelOptions {
   system: string;
   messages: MetaModelMessage[];
   maxTokens?: number;
+  /**
+   * How hard Muse Spark thinks before answering. Measured on a short chat
+   * turn (2026-09-19): default ~9.0 s / 563 thinking tokens, "low" ~6.3 s /
+   * 289. The API rejects "minimal" and rejects disabling thinking outright.
+   */
+  effort?: "low" | "medium" | "high";
 }
 
 /**
@@ -37,7 +43,7 @@ export async function callMetaModel(
   // "max_tokens"). Default high enough to leave real headroom after
   // thinking, until Meta's docs confirm a way to cap/disable reasoning
   // effort explicitly.
-  const { apiKey, system, messages, maxTokens = 4096 } = options;
+  const { apiKey, system, messages, maxTokens = 4096, effort = "low" } = options;
 
   const client = new Anthropic({
     baseURL: META_MODEL_BASE_URL,
@@ -49,6 +55,8 @@ export async function callMetaModel(
     max_tokens: maxTokens,
     system,
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    // Not in this SDK version's types yet; the Meta endpoint accepts it.
+    ...({ output_config: { effort } } as Record<string, unknown>),
   });
 
   const textBlock = response.content.find(
