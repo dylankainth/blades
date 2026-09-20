@@ -124,8 +124,13 @@ object VoiceRepository {
      * the very person it is about. Fire-and-forget; never blocks the caller.
      */
     fun whisperIfListening(context: Context, text: String) {
+        if (!headphonesConnected(context.applicationContext)) return
+        speakInBackground(context, text)
+    }
+
+    /** Speaks on the app-wide scope so it survives the calling screen going away. */
+    fun speakInBackground(context: Context, text: String) {
         val appContext = context.applicationContext
-        if (!headphonesConnected(appContext)) return
         appScope.launch {
             try {
                 speak(appContext, text)
