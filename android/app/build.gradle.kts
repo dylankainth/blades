@@ -82,5 +82,9 @@ dependencies {
     // than Credential Manager for this scope). See auth/AuthManager.kt.
     implementation("com.google.android.gms:play-services-auth:21.2.0")
 
+    // QR scanner for pairing a Kindred badge. Runs inside Play services, so
+    // the app needs no CAMERA permission and no camera code of its own.
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

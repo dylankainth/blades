@@ -62,12 +62,6 @@ class BleProximityService : Service() {
     // too large for a legacy BLE advertisement packet's 31-byte budget).
     private var myToken: String = ""
 
-    // De-dupe: avoid spamming Firestore with a write (or a repeat token
-    // resolution lookup) every single time we re-see the same nearby
-    // token (BLE scan results can fire many times a second for one
-    // physical device). Simple in-memory set is fine for a hackathon
-    // demo; it resets when the service restarts.
-    private val recentlySeenTokens = ConcurrentHashMap.newKeySet<String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -223,7 +217,12 @@ class BleProximityService : Service() {
             if (token == myToken) return // shouldn't happen, but guard anyway
             val myId = myTwinId ?: return
 
-            if (recentlySeenTokens.add(token)) {
+            // Proximity means "walked up to me", not "somewhere in the hall":
+            // BLE adverts carry 20 m+ indoors, so gate on signal strength.
+            if (result.rssi < MIN_RSSI_DBM) return
+
+            if (markSeen(token)) {
+                Log.i(TAG, "Token $token in range at ${result.rssi} dBm")
                 // Resolve the short token to a real twinId via Firestore —
                 // see BleSessionRepository for why this indirection exists.
                 serviceScope.launch {
@@ -249,9 +248,13 @@ class BleProximityService : Service() {
         // the same location document (useful for de-duping on the backend
         // too), rather than a single flat "ble-proximity" bucket that would
         // mix every pair in the room together under one location.
+        // Only our own doc: Firestore rules reject writing someone else's
+        // check-in. Naming otherTwinId on it lets onCheckin negotiate straight
+        // away instead of waiting for the other side to detect us too — which
+        // never happens when the other person is wearing a badge and their
+        // phone is not advertising.
         val locationId = syntheticPairLocationId(myId, otherTwinId)
-        CheckinRepository.recordCheckin(locationId, myId)
-        CheckinRepository.recordCheckin(locationId, otherTwinId)
+        CheckinRepository.recordCheckin(locationId, myId, otherTwinId)
     }
 
     // ---- Notification -----------------------------------------------------
@@ -301,6 +304,29 @@ class BleProximityService : Service() {
     companion object {
         private const val TAG = "BleProximityService"
         private const val NOTIFICATION_ID = 42
+
+        /** Roughly "within a couple of metres". Tune at the venue via logcat. */
+        private const val MIN_RSSI_DBM = -72
+
+        /** Re-report a token we keep seeing at most this often. */
+        private const val SEEN_TTL_MS = 60_000L
+
+        // De-dupe: scan results fire many times a second for one device, and
+        // each report costs a Firestore lookup + write. Static so the Home
+        // screen's "Reset demo" can clear it without restarting the service.
+        // Re-reports are cheap server-side: runNegotiation skips a pair that
+        // already has a match doc.
+        private val lastSeenAtMs = ConcurrentHashMap<String, Long>()
+
+        private fun markSeen(token: String): Boolean {
+            val now = System.currentTimeMillis()
+            val previous = lastSeenAtMs[token]
+            if (previous != null && now - previous < SEEN_TTL_MS) return false
+            lastSeenAtMs[token] = now
+            return true
+        }
+
+        fun forgetSeenTokens() = lastSeenAtMs.clear()
 
         private fun tokenToBytes(token: String): ByteArray =
             ByteArray(token.length / 2) { i ->

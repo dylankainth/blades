@@ -51,12 +51,24 @@ export const onCheckin = onDocumentWritten(
       seenAt.toMillis() - RECENT_WINDOW_MINUTES * 60 * 1000,
     );
 
-    const peopleRef = db.collection("checkins").doc(locationId).collection("people");
-    const recentSnap = await peopleRef.where("lastSeenAt", ">=", cutoff).get();
-
-    const nearbyTwinIds = recentSnap.docs
-      .map((doc) => doc.id)
-      .filter((id) => id !== twinId);
+    // BLE detections name the twin they saw, so one side detecting is enough
+    // (runNegotiation's claim stops the pair being negotiated twice when both
+    // sides report). Without it, fall back to "who else is at this location".
+    let nearbyTwinIds: string[];
+    if (checkin.otherTwinId && checkin.otherTwinId !== twinId) {
+      nearbyTwinIds = [checkin.otherTwinId];
+    } else {
+      const peopleRef = db
+        .collection("checkins")
+        .doc(locationId)
+        .collection("people");
+      const recentSnap = await peopleRef
+        .where("lastSeenAt", ">=", cutoff)
+        .get();
+      nearbyTwinIds = recentSnap.docs
+        .map((doc) => doc.id)
+        .filter((id) => id !== twinId);
+    }
 
     if (nearbyTwinIds.length === 0) {
       return;

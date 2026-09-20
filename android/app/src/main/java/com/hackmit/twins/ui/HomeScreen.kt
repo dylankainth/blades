@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hackmit.twins.badge.BadgeMenu
 import com.hackmit.twins.ui.theme.KindredColors
 import kotlinx.coroutines.delay
 
@@ -68,6 +69,7 @@ fun HomeScreen(onShowRecent: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Kindred") },
+                actions = { BadgeMenu() },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = KindredColors.PageBackground,
                 ),

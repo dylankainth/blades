@@ -37,6 +37,8 @@ export interface CheckinEntry {
   locationId?: string;
   /** Written by the Android client (CheckinRepository.kt) on every detection. */
   lastSeenAt?: Timestamp;
+  /** Set on BLE detections: the twin this device just saw nearby. */
+  otherTwinId?: string;
 }
 
 export type MatchStatus =
