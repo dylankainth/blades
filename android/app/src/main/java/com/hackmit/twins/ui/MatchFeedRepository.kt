@@ -15,6 +15,7 @@ data class MatchFeedItem(
     val reason: String?,
     val score: Int?,
     val status: String, // "confirmed" | "dismissed" | "proposed" | "negotiating"
+    val revealStatus: String?, // "pending" | "revealed" | "cancelled" — only set once status == "confirmed"
 )
 
 /** One line of the negotiation transcript, ready to render as a chat bubble. */
@@ -69,6 +70,7 @@ object MatchFeedRepository {
                         reason = doc.getString("reason"),
                         score = (doc.getLong("score"))?.toInt(),
                         status = doc.getString("status") ?: "dismissed",
+                        revealStatus = doc.getString("revealStatus"),
                     )
                 }
                 onUpdate(items)
