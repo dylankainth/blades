@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -768,7 +769,18 @@ private fun ConnectDialog(
             color = KlickColors.CardSurface,
             border = BorderStroke(1.dp, KlickColors.Border),
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            // A Dialog's content otherwise grows unbounded — with a long
+            // text dump typed into the context box, that pushed the
+            // Save/Connect button off the bottom of the screen entirely,
+            // with no way to reach it. Capping the height and scrolling
+            // within it keeps the button reachable no matter how much text
+            // is in the box.
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,

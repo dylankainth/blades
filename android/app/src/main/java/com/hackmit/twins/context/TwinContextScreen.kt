@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -97,6 +98,7 @@ fun TwinContextScreen(twinId: String, onBackToRecent: () -> Unit) {
     }
 
     var editingIndex by remember { mutableStateOf<Int?>(null) }
+    var showContextDialog by remember { mutableStateOf(false) }
     var showInstagramDialog by remember { mutableStateOf(false) }
     var showFacebookDialog by remember { mutableStateOf(false) }
 
@@ -206,6 +208,12 @@ fun TwinContextScreen(twinId: String, onBackToRecent: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 ConnectStatusCircle(
+                    label = "✎",
+                    caption = "Context",
+                    connected = snapshot.connections.context,
+                    onClick = { showContextDialog = true },
+                )
+                ConnectStatusCircle(
                     label = "IG",
                     caption = "Instagram",
                     connected = snapshot.connections.instagram,
@@ -246,6 +254,9 @@ fun TwinContextScreen(twinId: String, onBackToRecent: () -> Unit) {
         )
     }
 
+    if (showContextDialog) {
+        ContextConnectDialog(twinId = twinId, onDismiss = { showContextDialog = false })
+    }
     if (showInstagramDialog) {
         InstagramConnectDialog(twinId = twinId, onDismiss = { showInstagramDialog = false })
     }
@@ -320,7 +331,12 @@ private fun EditFactDialog(
             color = KlickColors.CardSurface,
             border = BorderStroke(1.dp, KlickColors.Border),
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 Text(fact.category, style = MaterialTheme.typography.titleLarge, color = KlickColors.TextPrimary)
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
@@ -407,10 +423,90 @@ private fun ConnectDialogShell(title: String, onDismiss: () -> Unit, content: @C
             color = KlickColors.CardSurface,
             border = BorderStroke(1.dp, KlickColors.Border),
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            // A Dialog's content otherwise grows unbounded — a long context
+            // text dump pushed the Save/Connect button off the bottom of
+            // the screen with no way to reach it. Capping the height and
+            // scrolling within it keeps the button reachable regardless of
+            // how much text is in the box.
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 Text(title, style = MaterialTheme.typography.titleLarge, color = KlickColors.TextPrimary)
                 Spacer(modifier = Modifier.height(12.dp))
                 content()
+            }
+        }
+    }
+}
+
+/**
+ * Lets a twin's text-dump context be added (or refreshed) without
+ * repeating onboarding — same submitContext.ts call as OnboardingScreen's
+ * ConnectStep, just reachable any time from the "Connect more of you" row.
+ */
+@Composable
+private fun ContextConnectDialog(twinId: String, onDismiss: () -> Unit) {
+    var textDump by remember { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    ConnectDialogShell(title = "Tell us about yourself", onDismiss = onDismiss) {
+        Text(
+            text = "Paste anything — a bio, notes on what you're working on, what you're hoping to get out of this weekend.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = KlickColors.TextSecondary,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedTextField(
+            value = textDump,
+            onValueChange = { textDump = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("e.g. I'm a CS student building a founder community...") },
+            minLines = 5,
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = KlickColors.TextPrimary,
+                unfocusedBorderColor = KlickColors.Border,
+            ),
+        )
+        if (error != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(error ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Button(
+            onClick = {
+                val dump = textDump.trim()
+                if (dump.isEmpty() || isSubmitting) return@Button
+                isSubmitting = true
+                error = null
+                scope.launch {
+                    try {
+                        Firebase.functions
+                            .getHttpsCallable("submitContext")
+                            .call(hashMapOf("twinId" to twinId, "textDump" to dump))
+                            .await()
+                        onDismiss()
+                    } catch (e: Exception) {
+                        error = "Couldn't save that just now — mind trying again? (${e.message})"
+                    } finally {
+                        isSubmitting = false
+                    }
+                }
+            },
+            enabled = textDump.isNotBlank() && !isSubmitting,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = KlickColors.TextPrimary, contentColor = KlickColors.OnDark),
+        ) {
+            if (isSubmitting) {
+                CircularProgressIndicator(modifier = Modifier.height(20.dp), color = KlickColors.OnDark)
+            } else {
+                Text("Save", style = MaterialTheme.typography.labelLarge)
             }
         }
     }

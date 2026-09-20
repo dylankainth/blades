@@ -27,6 +27,7 @@ data class TwinFact(
  * a best-effort signal.
  */
 data class TwinConnections(
+    val context: Boolean = false,
     val instagram: Boolean = false,
     val linkedin: Boolean = false,
     val facebook: Boolean = false,
@@ -70,6 +71,7 @@ object TwinContextRepository {
 
                 val socialContext = doc.getString("socialContext")
                 val connections = TwinConnections(
+                    context = !doc.getString("rawContext").isNullOrBlank(),
                     instagram = socialContext?.contains("[[instagram]]") == true,
                     linkedin = socialContext?.contains("[[linkedin]]") == true,
                     facebook = socialContext?.contains("[[facebook]]") == true || doc.getString("photoUrl") != null,
