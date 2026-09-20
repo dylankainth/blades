@@ -12,11 +12,14 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == twinId;
     }
 
-    // onboarding_sessions/{twinId} — the onboarding chat transcript.
-    // Private to the owning device; the onboardingChat Cloud Function
-    // itself writes via the Admin SDK (which bypasses these rules), so
-    // this really only governs any direct client reads/writes.
-    match /onboarding_sessions/{twinId} {
+    // context_submissions/{twinId} — audit trail of what a twin's context
+    // was actually built from: the raw pasted text dump, plus any scraped
+    // Instagram/Facebook text from Tier B (see CLAUDE.md's two-tier
+    // context model). Private to the owning device; the submitContext and
+    // importSocialContext Cloud Functions write via the Admin SDK (which
+    // bypasses these rules), so this really only governs any direct
+    // client reads/writes.
+    match /context_submissions/{twinId} {
       allow read, write: if request.auth != null && request.auth.uid == twinId;
     }
 

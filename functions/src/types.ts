@@ -9,6 +9,21 @@ export interface TwinProfile {
   summary?: string | null;
   /** Short list of extracted interests/tags, used for shortlisting. */
   interests?: string[];
+  /**
+   * The user's own pasted "tell us about yourself" text dump — kept
+   * verbatim for provenance/debugging. This is the primary (Tier A) source
+   * `summary`/`interests` are extracted from. See submitContext.ts.
+   */
+  rawContext?: string | null;
+  /**
+   * Aggregated caption/post text pulled from Instagram/Facebook via
+   * Graph API (Tier B — tester/role accounts only, see
+   * importSocialContext.ts). Kept separate from `rawContext` since it's
+   * machine-scraped rather than user-authored; merged alongside it when
+   * re-running extraction. Null/absent for the vast majority of users who
+   * aren't on the Meta App's tester list.
+   */
+  socialContext?: string | null;
   /** FCM device token(s) to push notifications to. */
   fcmTokens?: string[];
   onboardingComplete?: boolean;
@@ -16,17 +31,17 @@ export interface TwinProfile {
   updatedAt?: Timestamp;
 }
 
-/** A single chat turn, stored in onboarding_sessions/{twinId}.turns[] */
-export interface OnboardingTurn {
-  role: "user" | "assistant";
-  content: string;
-  ts?: Timestamp;
-}
-
-/** onboarding_sessions/{twinId} */
-export interface OnboardingSession {
+/**
+ * context_submissions/{twinId} — audit trail of what a twin's context was
+ * actually built from (the raw text dump + any scraped social text). Not
+ * read by negotiateTwins.ts; twins/{twinId}'s `summary`/`interests` are the
+ * derived fields that actually drive matching. This exists purely so a
+ * human can later see/debug what a given twin's persona was sourced from.
+ */
+export interface ContextSubmission {
   twinId: string;
-  turns: OnboardingTurn[];
+  textDump: string;
+  socialContext?: string | null;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

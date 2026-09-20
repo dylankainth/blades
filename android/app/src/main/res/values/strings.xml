@@ -12,8 +12,8 @@
     <!-- TODO: replace with the real Facebook App ID / Client Token from
          developers.facebook.com before demo day. Login scoped to
          public_profile only (name + photo) — see OnboardingScreen.kt. -->
-    <string name="facebook_app_id">000000000000000</string>
-    <string name="facebook_client_token">TODO_CLIENT_TOKEN</string>
+    <string name="facebook_app_id">1581609969480780</string>
+    <string name="facebook_client_token">2b4c8f95f81378017e55c5bf24550e9c</string>
 
     <string name="google_web_client_id">110415722590-ui13k6qunaindougl7pjj15t6bmb166r.apps.googleusercontent.com</string>
 </resources>
