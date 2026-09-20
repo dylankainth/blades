@@ -13,6 +13,33 @@ export const DEFAULT_BOUNDARIES: TwinBoundaries = {
   deeplyPersonalHistory: false,
 };
 
+/**
+ * twins/{twinId}.facts — one categorized, bite-sized observation extracted
+ * from a twin's context (see lib/extractProfile.ts). Where `summary` is one
+ * rolling paragraph and `interests` is a flat tag list, `facts` is the
+ * granular, individually-editable breakdown the "Everything it knows"
+ * screen renders as its own separate card, one per array entry — see
+ * TwinContextScreen.kt on the Android side. Directly editable/removable by
+ * the user (full transparency, per CLAUDE.md's guardrails), which is why
+ * this is a plain array of small objects rather than another opaque blob
+ * of prose: an in-place edit only has to touch one entry.
+ */
+export interface TwinFact {
+  /** Short label, e.g. "Current project", "Looking for", "Past conversations". */
+  category: string;
+  /** One concise sentence — the actual thing learned. */
+  detail: string;
+  /**
+   * Set once the user hand-edits this fact from the "Everything it knows"
+   * screen (see Android's TwinContextRepository.kt, which writes this
+   * field directly — twins/{twinId} is owner-writable, same pattern as
+   * PushTokenRepository's fcmTokens). Facts flagged here survive the next
+   * re-extraction verbatim instead of being silently overwritten by the
+   * model's next guess — see mergeFacts in lib/extractProfile.ts.
+   */
+  edited?: boolean;
+}
+
 /** twins/{twinId} */
 export interface TwinProfile {
   twinId: string;
@@ -22,6 +49,15 @@ export interface TwinProfile {
   summary?: string | null;
   /** Short list of extracted interests/tags, used for shortlisting. */
   interests?: string[];
+  /**
+   * Granular categorized facts extracted alongside summary/interests — see
+   * TwinFact. Re-extracted (and fully replaced) on every submitContext/
+   * importSocialContext call, EXCEPT for entries the user has manually
+   * edited (see updateTwinFact.ts), which are preserved verbatim across
+   * re-extractions rather than silently overwritten by the model's next
+   * guess.
+   */
+  facts?: TwinFact[];
   /**
    * The user's own pasted "tell us about yourself" text dump — kept
    * verbatim for provenance/debugging. This is the primary (Tier A) source

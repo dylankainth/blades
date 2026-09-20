@@ -17,7 +17,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import { db } from "./lib/admin";
 import { META_MODEL_API_KEY } from "./lib/secrets";
-import { extractProfile } from "./lib/extractProfile";
+import { extractProfile, mergeFacts } from "./lib/extractProfile";
 import type { TwinProfile } from "./types";
 
 interface SubmitContextRequest {
@@ -111,6 +111,7 @@ export const submitContext = onCall<SubmitContextRequest>(
         rawContext: trimmedDump,
         summary: extracted.summary || null,
         interests: extracted.interests,
+        facts: mergeFacts(existing?.facts, extracted.facts),
         onboardingComplete: true,
         updatedAt: FieldValue.serverTimestamp(),
         // Only written when we actually have one — never clobber with empty.

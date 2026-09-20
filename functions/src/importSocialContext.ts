@@ -36,7 +36,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import { db } from "./lib/admin";
 import { META_MODEL_API_KEY, PARALLEL_API_KEY } from "./lib/secrets";
-import { extractProfile } from "./lib/extractProfile";
+import { extractProfile, mergeFacts } from "./lib/extractProfile";
 import { GraphApiError, fetchFacebookPostText } from "./lib/graphApi";
 import { ParallelApiError, searchWeb } from "./lib/parallel";
 import { LinkedinPdfError, extractLinkedinPdfText } from "./lib/linkedinPdf";
@@ -239,6 +239,7 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
         socialContext: mergedSocialContext,
         summary: extracted.summary || null,
         interests: extracted.interests,
+        facts: mergeFacts(existingTwin?.facts, extracted.facts),
         updatedAt: FieldValue.serverTimestamp(),
         // Only set if the model actually extracted one — don't clobber a
         // name set some other way with an empty value.
