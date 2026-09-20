@@ -9,8 +9,9 @@
  *
  * Each twin's persona (built from its Firestore profile summary) argues, in
  * a short back-and-forth over the Meta Model API, why the two people should
- * or shouldn't meet. The negotiation converges on a single plain-language
- * reason. The full transcript + reason are written to matches/{matchId}.
+ * or shouldn't meet. Both twins open at the same time, then each answers the
+ * other and gives its own verdict; the pair gets the more sceptical twin's
+ * score and its single plain-language reason. The full transcript + reason are written to matches/{matchId}.
  *
  * IMPORTANT (per CLAUDE.md guardrails): this function only decides whether
  * to *surface* a suggestion. It never messages the other person and never
@@ -24,7 +25,13 @@ import * as logger from "firebase-functions/logger";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { db } from "./lib/admin";
 import { META_MODEL_API_KEY } from "./lib/secrets";
-import { AS_ONE_OF_YOU, AS_THIS_PERSON, redactNames } from "./lib/redactNames";
+import {
+  AS_MY_PERSON,
+  AS_ONE_OF_YOU,
+  AS_THIS_PERSON,
+  AS_YOUR_PERSON,
+  redactNames,
+} from "./lib/redactNames";
 import {
   callMetaModel,
   MUSE_SPARK_MODEL,
@@ -47,7 +54,6 @@ import type {
 } from "./types";
 import { DEFAULT_BOUNDARIES } from "./types";
 
-const NEGOTIATION_ROUNDS = 2; // each twin speaks this many times
 /**
  * Reasoning effort for every call in a negotiation. Same value callMetaModel
  * defaults to; spelled out here so the usage record states what was
@@ -109,6 +115,8 @@ yourself — that is handled outside this conversation by a human.${boundariesIn
 }
 
 const MATCH_SCORE_THRESHOLD = 70;
+/** What the public judge feed shows in place of a name before both people approve. */
+const HIDDEN_NAME = "Hidden until both say yes";
 /** A "negotiating" claim older than this is treated as a crashed run. */
 const NEGOTIATION_CLAIM_TTL_MS = 3 * 60 * 1000;
 
@@ -123,9 +131,32 @@ those go in the "score" field only). Both people read this sentence before
 either has agreed to be introduced, so never use anyone's name in it:
 address it to the pair, as "you both" or "one of you".`;
 
+const OPENING_PROMPT =
+  "Open the conversation: in 1-2 sentences, say what you're hoping to find for your person and what they could offer someone else.";
+
+/**
+ * Appended to the other twin's opener. Each twin answers it and gives its own
+ * verdict in the same call, so no separate convergence call is needed.
+ */
+const REPLY_AND_VERDICT_PROMPT = `Reply to the other twin, then give your own verdict. Respond with ONLY a raw
+JSON object (no markdown fences, no commentary) with exactly three fields:
+"message" (your 1-3 sentence reply to the other twin), "score" (an integer
+0-100 for how strong a reason these two people have to meet; be honest and
+use the full range, most pairs should NOT score above 70) and "reason" (ONE
+short plain-language sentence: if the score is high, the single best concrete
+reason they should meet; if it's low, the honest reason they probably
+shouldn't bother; no percentages or scores inside this sentence). Both people
+read the reason before either has agreed to be introduced, so never use
+anyone's name in it: address it to the pair, as "you both" or "one of you".`;
+
 interface Convergence {
   score: number;
   reason: string;
+}
+
+/** One twin's reply to the other's opener, plus its own verdict on the pair. */
+interface TwinVerdict extends Convergence {
+  message: string;
 }
 
 export interface RunNegotiationResult {
@@ -233,60 +264,77 @@ export async function runNegotiation(
 
   try {
     const transcript: NegotiationTurn[] = [];
-    // Conversation history from twin A's point of view and twin B's point of
-    // view are mirror images of each other (each sees the other as "user").
-    const historyForA: MetaModelMessage[] = [];
-    const historyForB: MetaModelMessage[] = [];
 
-    const speak = async (
-      speakerId: string,
+    const ask = (
       speakerProfile: TwinProfile,
       otherProfile: TwinProfile,
-      history: MetaModelMessage[],
-    ): Promise<string> => {
-      const reply = await callMetaModel({
+      messages: MetaModelMessage[],
+    ): Promise<string> =>
+      callMetaModel({
         apiKey: opts.apiKey,
         effort: NEGOTIATION_EFFORT,
         onUsage,
         system: personaSystemPrompt(speakerProfile, otherProfile),
-        messages:
-          history.length > 0
-            ? history
-            : [
-                {
-                  role: "user",
-                  content:
-                    "Open the conversation: briefly say what you're hoping to find for your person.",
-                },
-              ],
+        messages,
       });
-      transcript.push({
-        speakerTwinId: speakerId,
-        content: reply,
-        ts: Timestamp.now(),
-      });
-      return reply;
+    const say = (speakerTwinId: string, content: string): void => {
+      transcript.push({ speakerTwinId, content, ts: Timestamp.now() });
     };
 
-    for (let round = 0; round < NEGOTIATION_ROUNDS; round++) {
-      const replyA = await speak(twinIdA, twinA, twinB, historyForA);
-      historyForA.push({ role: "assistant", content: replyA });
-      historyForB.push({ role: "user", content: replyA });
+    // Two steps, each with both twins' calls in flight at once. Every Muse
+    // Spark call takes 6-7 s whatever its size, so the old strictly
+    // alternating A, B, A, B, judge sequence cost five round trips (27-42 s
+    // measured). This costs two, and the person is more likely to still be
+    // standing there when the notification lands.
+    const opening: MetaModelMessage = { role: "user", content: OPENING_PROMPT };
+    const [openerA, openerB] = await Promise.all([
+      ask(twinA, twinB, [opening]),
+      ask(twinB, twinA, [opening]),
+    ]);
+    say(twinIdA, openerA);
+    say(twinIdB, openerB);
 
-      const replyB = await speak(twinIdB, twinB, twinA, historyForB);
-      historyForB.push({ role: "assistant", content: replyB });
-      historyForA.push({ role: "user", content: replyB });
-    }
+    // Each twin sees the other's opener as the "user" turn, the mirror image
+    // of the other's view, and answers it with its own verdict attached.
+    const historyForA: MetaModelMessage[] = [
+      opening,
+      { role: "assistant", content: openerA },
+    ];
+    const historyForB: MetaModelMessage[] = [
+      opening,
+      { role: "assistant", content: openerB },
+    ];
+    const [replyRawA, replyRawB] = await Promise.all([
+      ask(twinA, twinB, [
+        ...historyForA,
+        { role: "user", content: `${openerB}\n\n${REPLY_AND_VERDICT_PROMPT}` },
+      ]),
+      ask(twinB, twinA, [
+        ...historyForB,
+        { role: "user", content: `${openerA}\n\n${REPLY_AND_VERDICT_PROMPT}` },
+      ]),
+    ]);
+    const verdictA = parseTwinVerdict(replyRawA);
+    const verdictB = parseTwinVerdict(replyRawB);
+    say(twinIdA, verdictA?.message ?? replyRawA.trim());
+    say(twinIdB, verdictB?.message ?? replyRawB.trim());
 
-    // Ask twin A's persona to converge on a final score + reason.
-    const convergenceRaw = await callMetaModel({
-      apiKey: opts.apiKey,
-      effort: NEGOTIATION_EFFORT,
-      onUsage,
-      system: personaSystemPrompt(twinA, twinB),
-      messages: [...historyForA, { role: "user", content: CONVERGENCE_PROMPT }],
-    });
-    const convergence = parseConvergence(convergenceRaw);
+    const convergence =
+      verdictA && verdictB
+        ? combineVerdicts(verdictA, verdictB)
+        : // A twin answered in prose instead of JSON. Rare; pay for one more
+          // call rather than guess a score from free text.
+          parseConvergence(
+            await ask(twinA, twinB, [
+              ...historyForA,
+              { role: "user", content: openerB },
+              { role: "assistant", content: verdictA?.message ?? replyRawA.trim() },
+              {
+                role: "user",
+                content: `${verdictB?.message ?? replyRawB.trim()}\n\n${CONVERGENCE_PROMPT}`,
+              },
+            ]),
+          );
     const isMatch = convergence.score >= MATCH_SCORE_THRESHOLD;
     const usage = currentUsage();
 
@@ -339,18 +387,33 @@ export async function runNegotiation(
 
     // Public-safe copy for the judge dashboard (any signed-in user can read
     // judge_feed/, unlike matches/ which is participant-only — see
-    // firestore.rules). Full data for a confirmed match; outcome-only for a
-    // dismissed one, since the reason/transcript tend to name-drop real
-    // people in the model's own words.
+    // firestore.rules). "confirmed" is only the twins' verdict; neither
+    // person has agreed to anything yet, so this copy carries no names or
+    // photos and a name-redacted transcript. submitMatchApproval fills in
+    // the real ones once both people approve. A dismissed pair gets the
+    // outcome only.
     const judgeFeedDoc: JudgeFeedDoc = isMatch
       ? {
           matchId,
           status: "confirmed",
           score: convergence.score,
           reason: matchDoc.reason ?? null,
-          transcript,
-          names,
-          photoUrls,
+          transcript: transcript.map((turn) => {
+            const speakerIsA = turn.speakerTwinId === twinIdA;
+            const own = speakerIsA ? twinA.name : twinB.name;
+            const other = speakerIsA ? twinB.name : twinA.name;
+            return {
+              ...turn,
+              content: redactNames(
+                redactNames(turn.content, [own], AS_MY_PERSON),
+                [other],
+                AS_YOUR_PERSON,
+              ),
+            };
+          }),
+          names: { [twinIdA]: HIDDEN_NAME, [twinIdB]: HIDDEN_NAME },
+          photoUrls: { [twinIdA]: null, [twinIdB]: null },
+          revealStatus: "pending",
           usage,
           updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
         }
@@ -427,23 +490,66 @@ async function recordFailedUsage(
   }
 }
 
+/**
+ * Both twins have to agree, the same rule the two humans get afterwards: the
+ * pair scores what the more sceptical twin gave it, and gets that twin's
+ * reason.
+ */
+function combineVerdicts(a: TwinVerdict, b: TwinVerdict): Convergence {
+  const sceptic = a.score <= b.score ? a : b;
+  return { score: sceptic.score, reason: sceptic.reason };
+}
+
+/** Strips an optional markdown fence and parses; null if it isn't a JSON object. */
+function parseJsonObject(raw: string): Record<string, unknown> | null {
+  try {
+    const jsonText = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
+    const parsed: unknown = JSON.parse(jsonText);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function clampScore(value: number): number {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+/** Null when the reply isn't the JSON shape asked for; the caller falls back. */
+function parseTwinVerdict(raw: string): TwinVerdict | null {
+  const parsed = parseJsonObject(raw);
+  if (
+    !parsed ||
+    typeof parsed.message !== "string" ||
+    typeof parsed.score !== "number" ||
+    typeof parsed.reason !== "string" ||
+    !parsed.message.trim() ||
+    !parsed.reason.trim()
+  ) {
+    return null;
+  }
+  return {
+    message: parsed.message.trim(),
+    score: clampScore(parsed.score),
+    reason: parsed.reason.trim(),
+  };
+}
+
 /** Best-effort JSON parse with a safe fallback — a malformed convergence
  *  response shouldn't fail the whole negotiation, just default to "not a
  *  strong match" with whatever text came back as the reason. */
 function parseConvergence(raw: string): Convergence {
-  try {
-    const jsonText = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
-    const parsed = JSON.parse(jsonText) as Partial<Convergence>;
-    const score =
-      typeof parsed.score === "number"
-        ? Math.max(0, Math.min(100, Math.round(parsed.score)))
-        : 0;
-    const reason = typeof parsed.reason === "string" ? parsed.reason : "";
-    return { score, reason };
-  } catch (err) {
-    console.error("Convergence parse failed, defaulting to no-match:", err);
+  const parsed = parseJsonObject(raw);
+  if (!parsed) {
+    logger.error("Convergence parse failed, defaulting to no-match");
     return { score: 0, reason: raw.trim().slice(0, 300) };
   }
+  return {
+    score: typeof parsed.score === "number" ? clampScore(parsed.score) : 0,
+    reason: typeof parsed.reason === "string" ? parsed.reason : "",
+  };
 }
 
 interface NegotiateTwinsRequest {

@@ -546,10 +546,15 @@
             matches.forEach((match) => {
                 const isActive = match.id === activeMatchId;
                 const isConfirmed = match.status === "confirmed";
+                // Names only exist on the feed once both people have approved
+                // (revealStatus "revealed", written by submitMatchApproval).
+                const isRevealed = match.revealStatus === "revealed";
                 const names = match.names ? Object.values(match.names) : [];
-                const title = isConfirmed
-                    ? `${escapeHtml(names[0] || "Twin 1")}<span class="sep">&#8596;</span>${escapeHtml(names[1] || "Twin 2")}`
-                    : `Private negotiation`;
+                const title = !isConfirmed
+                    ? `Private negotiation`
+                    : isRevealed
+                      ? `${escapeHtml(names[0] || "Twin 1")}<span class="sep">&#8596;</span>${escapeHtml(names[1] || "Twin 2")}`
+                      : `Match found, names hidden until both say yes`;
 
                 const el = document.createElement("div");
                 el.className = `item ${isActive ? "active" : ""} ${isConfirmed ? "" : "dismissed"}`;
@@ -612,7 +617,7 @@
             const inner = document.createElement("div");
             inner.className = "stage-inner";
 
-            const names = match.names || {};
+            const names = match.revealStatus === "revealed" ? match.names || {} : {};
             const transcript = match.transcript || [];
 
             // Two speakers, two treatments — the amber avatar belongs to
@@ -624,13 +629,17 @@
             });
 
             transcript.forEach((turn, i) => {
-                const speaker = names[turn.speakerTwinId] || "Twin";
+                const speaker = names[turn.speakerTwinId];
+                const twinLetter = speakerOrder[0] === turn.speakerTwinId ? "A" : "B";
+                const speakerLabel = speaker ? `${speaker}\u2019s twin` : `Twin ${twinLetter}`;
                 const initials = speaker
-                    .split(" ")
-                    .map((w) => w[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase();
+                    ? speaker
+                          .split(" ")
+                          .map((w) => w[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()
+                    : twinLetter;
 
                 const msg = document.createElement("div");
                 msg.className = "turn";
@@ -638,7 +647,7 @@
                 msg.innerHTML = `
                     <div class="avatar ${speakerOrder[0] === turn.speakerTwinId ? "a" : "b"}">${escapeHtml(initials)}</div>
                     <div style="flex:1; min-width:0">
-                        <div class="speaker">${escapeHtml(speaker)}&rsquo;s twin</div>
+                        <div class="speaker">${escapeHtml(speakerLabel)}</div>
                         <div class="bubble">${escapeHtml(turn.content || "")}</div>
                     </div>
                 `;

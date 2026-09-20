@@ -238,6 +238,11 @@ export interface JudgeFeedDoc {
    * against. See lib/negotiationUsage.ts.
    */
   usage?: NegotiationUsage;
+  /**
+   * Mirrors MatchDoc.revealStatus. Until it is "revealed" the names are
+   * placeholders, photoUrls are null and the transcript has names redacted.
+   */
+  revealStatus?: "pending" | "revealed" | "cancelled";
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

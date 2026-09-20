@@ -21,7 +21,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
 import { db, messaging } from "./lib/admin";
-import type { MatchDoc, TwinProfile } from "./types";
+import type { JudgeFeedDoc, MatchDoc, TwinProfile } from "./types";
 
 interface SubmitMatchApprovalRequest {
   matchId: string;
@@ -122,24 +122,71 @@ export const submitMatchApproval = onCall<SubmitMatchApprovalRequest>(
     );
 
     if (justRevealed) {
-      await notifyBothRevealed(matchId, callerId, otherId);
+      const [twinA, twinB] = await loadTwins(callerId, otherId);
+      // Reveal first: the push opens the radar, which reads the match doc.
+      await publishReveal(matchId, [twinA, twinB]);
+      await notifyBothRevealed(matchId, twinA, twinB);
     }
 
     return { revealStatus };
   },
 );
 
-async function notifyBothRevealed(
-  matchId: string,
+async function loadTwins(
   twinIdA: string,
   twinIdB: string,
-): Promise<void> {
+): Promise<[TwinProfile | null, TwinProfile | null]> {
   const [snapA, snapB] = await Promise.all([
     db.collection("twins").doc(twinIdA).get(),
     db.collection("twins").doc(twinIdB).get(),
   ]);
-  const twinA = snapA.exists ? (snapA.data() as TwinProfile) : null;
-  const twinB = snapB.exists ? (snapB.data() as TwinProfile) : null;
+  return [
+    snapA.exists ? (snapA.data() as TwinProfile) : null,
+    snapB.exists ? (snapB.data() as TwinProfile) : null,
+  ];
+}
+
+/**
+ * Both people have said yes, so the name-redacted copies written at
+ * negotiation time (negotiateTwins.ts) are replaced with the real thing: the
+ * teaser summaries on the match doc, and the names, photos and transcript on
+ * the public judge feed. A failure here must not undo the reveal itself.
+ */
+async function publishReveal(
+  matchId: string,
+  twins: ReadonlyArray<TwinProfile | null>,
+): Promise<void> {
+  try {
+    const matchRef = db.collection("matches").doc(matchId);
+    const match = (await matchRef.get()).data() as MatchDoc | undefined;
+    if (!match) return;
+
+    const summaries = Object.fromEntries(
+      twins
+        .filter((twin): twin is TwinProfile => twin !== null)
+        .map((twin) => [twin.twinId, twin.summary ?? null]),
+    );
+    const judgeFeed: Partial<JudgeFeedDoc> = {
+      names: match.names,
+      photoUrls: match.photoUrls,
+      transcript: match.transcript,
+      revealStatus: "revealed",
+      updatedAt: FieldValue.serverTimestamp() as unknown as JudgeFeedDoc["updatedAt"],
+    };
+    await Promise.all([
+      matchRef.set({ summaries }, { merge: true }),
+      db.collection("judge_feed").doc(matchId).set(judgeFeed, { merge: true }),
+    ]);
+  } catch (err) {
+    console.error(`Failed to publish reveal for ${matchId}:`, err);
+  }
+}
+
+async function notifyBothRevealed(
+  matchId: string,
+  twinA: TwinProfile | null,
+  twinB: TwinProfile | null,
+): Promise<void> {
 
   const sendTo = async (recipient: TwinProfile | null, other: TwinProfile | null) => {
     if (!recipient?.fcmTokens?.length) return;
