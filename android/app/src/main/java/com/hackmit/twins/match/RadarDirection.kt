@@ -22,6 +22,8 @@ data class RadarDirection(
     val estimate: DirectionEstimate?,
     /** See [DirectionSweep.strengths]. Empty while the radar is not looking. */
     val sectorStrengths: List<Float?>,
+    /** Signal climbing or dropping as the user walks; null while unknown or while they turn. */
+    val approach: Approach? = null,
 )
 
 // The ends of the closeness scale. The other phone is usually in a pocket,
@@ -51,10 +53,12 @@ fun rememberRadarDirection(otherTwinId: String, active: Boolean): RadarDirection
     val heading by rememberHeadingDeg()
     val currentHeading by rememberUpdatedState(heading)
     var finder by remember(otherTwinId) { mutableStateOf(DirectionFinder()) }
+    var tracker by remember(otherTwinId) { mutableStateOf(ApproachTracker()) }
     LaunchedEffect(otherTwinId) {
         BleProximityService.rssiSamples.collect { sample ->
             if (sample.twinId != otherTwinId) return@collect
             finder = finder.add(sample.token, currentHeading, sample.rssiDbm, sample.elapsedRealtimeMs)
+            tracker = tracker.add(sample.token, sample.rssiDbm, sample.elapsedRealtimeMs, currentHeading)
         }
     }
     val tick by produceState(initialValue = 0L) {
@@ -67,5 +71,5 @@ fun rememberRadarDirection(otherTwinId: String, active: Boolean): RadarDirection
     val rssi = finder.strongestRssi(nowMs)
     if (!active) return RadarDirection(rssi, heading, estimate = null, sectorStrengths = emptyList())
     val reading = finder.best(nowMs)
-    return RadarDirection(rssi, heading, reading.estimate, reading.strengths)
+    return RadarDirection(rssi, heading, reading.estimate, reading.strengths, tracker.trend(nowMs))
 }

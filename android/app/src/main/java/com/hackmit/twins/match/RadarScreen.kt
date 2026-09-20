@@ -220,6 +220,11 @@ private fun hintText(meeting: Meeting, radar: RadarDirection): String {
     return when {
         meeting.justNow -> "Marked as met. Closing this match."
         meeting.met -> "You two have already met."
+        // Someone walking gets the walking cue; the arrow is for standing and turning.
+        radar.approach == Approach.CLOSER -> "Signal is getting stronger. Keep going this way."
+        // Still phones have tripped this, so it never sends anyone the other
+        // way. It asks for the turn on the spot, which is safe advice either way.
+        radar.approach == Approach.FARTHER -> "Signal is dropping. Stop and turn slowly so the arrow can find them."
         estimate != null && facing != null ->
             "Probably ${relativeDirectionLabel(estimate.bearingDeg, facing)}. " +
                 "A rough guess from signal strength."

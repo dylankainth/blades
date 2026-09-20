@@ -2,6 +2,7 @@ package com.hackmit.twins.match
 
 import com.hackmit.twins.ui.cute.rememberPressBounce
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.hackmit.twins.ui.theme.KlickColors
@@ -205,12 +207,7 @@ fun MatchTeaserScreen(
                     ) {
                         if (!d.summary.isNullOrBlank()) {
                             SectionLabel("KEY THINGS ABOUT THEM", topPadding = 0.dp)
-                            Text(
-                                text = d.summary,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = KlickColors.TextPrimary,
-                                modifier = Modifier.fillMaxWidth().padding(top = 7.dp),
-                            )
+                            WhoTheyAre(d.summary)
                         }
 
                         if (d.interests.isNotEmpty()) {
@@ -286,5 +283,28 @@ private fun SectionLabel(text: String, topPadding: androidx.compose.ui.unit.Dp) 
         style = KlickEyebrow,
         color = KlickColors.TextTertiary,
         modifier = Modifier.fillMaxWidth().padding(top = topPadding),
+    )
+}
+
+/** Lines of the other person's summary shown before a tap opens the rest. */
+private const val SUMMARY_PREVIEW_LINES = 3
+
+/**
+ * Someone deciding whether to say yes reads this standing in a corridor, so
+ * it starts as three lines. Tapping shows the whole summary.
+ */
+@Composable
+private fun WhoTheyAre(summary: String) {
+    var expanded by remember { mutableStateOf(false) }
+    Text(
+        text = summary,
+        style = MaterialTheme.typography.bodyMedium,
+        color = KlickColors.TextPrimary,
+        maxLines = if (expanded) Int.MAX_VALUE else SUMMARY_PREVIEW_LINES,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 7.dp)
+            .clickable { expanded = !expanded },
     )
 }

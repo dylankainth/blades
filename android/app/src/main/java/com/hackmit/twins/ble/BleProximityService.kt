@@ -23,10 +23,12 @@ import android.os.ParcelUuid
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.google.firebase.firestore.ListenerRegistration
 import com.hackmit.twins.MainActivity
 import com.hackmit.twins.R
 import com.hackmit.twins.auth.AuthManager
 import com.hackmit.twins.checkin.CheckinRepository
+import com.hackmit.twins.match.NetworkingMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -73,6 +75,9 @@ class BleProximityService : Service() {
 
     private var myTwinId: String? = null
 
+    /** Says the user's "I'm in" for them while networking mode is on. */
+    private var networkingWatch: ListenerRegistration? = null
+
     // Short random per-session identifier actually broadcast over BLE (see
     // class doc + BleSessionRepository for why: a raw Firebase uid is far
     // too large for a legacy BLE advertisement packet's 31-byte budget).
@@ -116,6 +121,7 @@ class BleProximityService : Service() {
         }
         myTwinId = twinId
         myToken = generateToken()
+        networkingWatch = NetworkingMode.watch(this, twinId, serviceScope)
         serviceScope.launch {
             BleSessionRepository.registerToken(myToken, twinId)
             radioMutex.withLock {
@@ -164,6 +170,7 @@ class BleProximityService : Service() {
         // Cancel first: a restart waiting between its stop and its start must
         // not bring a radio back up after the stops below.
         serviceScope.cancel()
+        networkingWatch?.remove()
         stopAdvertising()
         stopScanning()
     }

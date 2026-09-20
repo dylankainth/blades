@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -28,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.hackmit.twins.ble.BleProximityService
+import com.hackmit.twins.match.NetworkingMode
 import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -106,11 +108,25 @@ fun BadgeMenu(onLogout: () -> Unit) {
     val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
     var confirmingLogout by remember { mutableStateOf(false) }
+    var networking by remember { mutableStateOf(NetworkingMode.isOn(context)) }
 
     IconButton(onClick = { expanded = true }) {
         Icon(Icons.Filled.MoreVert, contentDescription = "Badge and demo options")
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenuItem(
+            text = { Text("Networking mode") },
+            leadingIcon = { Checkbox(checked = networking, onCheckedChange = null) },
+            onClick = {
+                networking = !networking
+                NetworkingMode.set(context, networking)
+                toast(
+                    context,
+                    if (networking) "Networking mode on. Your twin says yes to good matches for you."
+                    else "Networking mode off. You review each match first.",
+                )
+            },
+        )
         DropdownMenuItem(
             text = { Text("Pair a badge") },
             onClick = {
