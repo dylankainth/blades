@@ -1,11 +1,14 @@
 package com.hackmit.twins.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,7 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.hackmit.twins.ui.theme.KlickColors
-import com.hackmit.twins.ui.theme.KlickDisplayNumeral
+import com.hackmit.twins.ui.theme.KlickDisplayQuote
+import com.hackmit.twins.ui.theme.KlickEyebrow
 
 /**
  * "Why weren't we a match" screen — the full negotiation transcript between
@@ -76,27 +80,30 @@ fun NegotiationDetailScreen(
                 items(detail.transcript) { turn -> TranscriptBubble(turn) }
             }
 
+            // The verdict. Deliberately NOT a score: CLAUDE.md's central
+            // rule is that the product surfaces a plain-language reason and
+            // never a percentage, and this screen is the one place a user
+            // sees a negotiation's conclusion in full. The numeric score
+            // still gates the outcome server-side (MATCH_SCORE_THRESHOLD in
+            // negotiateTwins.ts) — it just isn't what we hand the human.
             Column(
-                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(KlickColors.CardSurface)
+                    .padding(horizontal = 24.dp, vertical = 26.dp),
             ) {
                 Text(
-                    text = "Alignment score",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = KlickColors.TextSecondary,
+                    text = "WHAT YOUR TWINS CONCLUDED",
+                    style = KlickEyebrow,
+                    color = KlickColors.Accent,
                 )
+                Spacer(Modifier.height(14.dp))
                 Text(
-                    text = "${detail.score ?: 0}",
-                    style = KlickDisplayNumeral,
+                    text = detail.reason?.takeIf { it.isNotBlank() }
+                        ?: "Your twins talked it through and didn't find a real reason for you two to meet.",
+                    style = KlickDisplayQuote,
                     color = KlickColors.TextPrimary,
                 )
-                if (!detail.reason.isNullOrBlank()) {
-                    Text(
-                        text = detail.reason,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = KlickColors.TextSecondary,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
             }
         }
     }

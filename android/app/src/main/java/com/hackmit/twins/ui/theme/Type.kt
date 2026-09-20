@@ -44,6 +44,37 @@ val KlickDisplayNumeral = TextStyle(
     letterSpacing = (-0.04).em,
 )
 
+/**
+ * The sentence equivalent of KlickDisplayNumeral, for the one place a
+ * *reason* is the payoff rather than a number — "you're both stuck on the
+ * same devops problem". Big enough to be the thing you read first, small
+ * enough that a two-line reason still fits above the fold.
+ *
+ * This exists because of CLAUDE.md's central rule: the product surfaces a
+ * plain-language why, never a score. Where an ordinary app would set a
+ * percentage at 72sp, Klick sets the sentence.
+ */
+val KlickDisplayQuote = TextStyle(
+    fontFamily = SpaceGroteskFamily,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 27.sp,
+    lineHeight = 34.sp,
+    letterSpacing = (-0.025).em,
+)
+
+/**
+ * Small, heavily tracked-out, uppercase — section markers ("WHY YOU TWO",
+ * "WHAT YOUR TWINS CONCLUDED"). The quiet counterweight that lets the
+ * display styles above feel deliberate rather than merely large.
+ */
+val KlickEyebrow = TextStyle(
+    fontFamily = SpaceGroteskFamily,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 11.sp,
+    lineHeight = 14.sp,
+    letterSpacing = 0.14.em,
+)
+
 val KlickTypography = Typography(
     headlineLarge = TextStyle(
         fontFamily = SpaceGroteskFamily,

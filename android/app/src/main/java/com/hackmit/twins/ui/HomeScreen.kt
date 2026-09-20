@@ -83,8 +83,13 @@ fun HomeScreen(onShowRecent: () -> Unit, onLogout: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
+                // The one fixed line on an otherwise rotating screen, so it
+                // sets the voice: the twin is a quiet companion doing work on
+                // your behalf, not a service reporting its status. ("Actively
+                // engaging nearby" read like a B2B dashboard sitting on top of
+                // SPLASH_MESSAGES' much warmer lines.)
                 Text(
-                    text = "Actively engaging nearby",
+                    text = "Your twin is listening",
                     style = MaterialTheme.typography.titleMedium,
                     color = KlickColors.TextPrimary,
                     textAlign = TextAlign.Center,

@@ -41,6 +41,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.hackmit.twins.ui.theme.KlickColors
+import com.hackmit.twins.ui.theme.KlickDisplayQuote
+import com.hackmit.twins.ui.theme.KlickEyebrow
 import kotlinx.coroutines.launch
 
 /**
@@ -112,78 +114,112 @@ fun MatchTeaserScreen(
         ) {
             // Scrolls on its own so a long summary can never squeeze the
             // approve/decline row below it off the screen.
+            // Editorial hierarchy, deliberately: the REASON is the largest
+            // thing on this screen, not the photo and not the name. This is
+            // the screen CLAUDE.md calls the centerpiece, and its rule is
+            // that the reasoning is the product — so the sentence gets the
+            // display treatment an ordinary app would spend on a match
+            // percentage. Photo and blurred name shrink to a byline, which
+            // is all a teaser needs them to be.
             Column(
                 modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                horizontalAlignment = Alignment.Start,
             ) {
                 Text(
-                    text = "Klick found someone",
-                    style = MaterialTheme.typography.labelLarge,
+                    text = "KLICK FOUND SOMEONE",
+                    style = KlickEyebrow,
                     color = KlickColors.Accent,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                if (d.otherPhotoUrl != null) {
-                    AsyncImage(
-                        model = d.otherPhotoUrl,
-                        contentDescription = null,
-                        modifier = Modifier.padding(top = 16.dp).size(140.dp).clip(CircleShape),
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 16.dp)
-                            .size(140.dp)
-                            .clip(CircleShape)
-                            .background(KlickColors.TextPrimary),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Person,
+                // Byline: face + teased name on one line.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    if (d.otherPhotoUrl != null) {
+                        AsyncImage(
+                            model = d.otherPhotoUrl,
                             contentDescription = null,
-                            tint = KlickColors.OnDark,
-                            modifier = Modifier.size(56.dp),
+                            modifier = Modifier.size(64.dp).clip(CircleShape),
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(KlickColors.TextPrimary),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Person,
+                                contentDescription = null,
+                                tint = KlickColors.OnDark,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
+                    }
+
+                    Column {
+                        // Real name, deliberately blurred — see file header.
+                        Text(
+                            text = d.otherName,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = KlickColors.TextPrimary,
+                            modifier = Modifier.blur(11.dp),
+                        )
+                        Text(
+                            text = "Name unlocks when you both say yes",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = KlickColors.TextTertiary,
+                            modifier = Modifier.padding(top = 3.dp),
                         )
                     }
                 }
 
-                // Real name, deliberately blurred — see file header.
-                Text(
-                    text = d.otherName,
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = KlickColors.TextPrimary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 14.dp).blur(14.dp),
-                )
-
+                // The payoff.
                 if (!d.reason.isNullOrBlank()) {
                     Text(
                         text = d.reason,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = KlickColors.TextSecondary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 10.dp),
+                        style = KlickDisplayQuote,
+                        color = KlickColors.TextPrimary,
+                        modifier = Modifier.fillMaxWidth().padding(top = 26.dp),
                     )
                 }
 
-                if (!d.summary.isNullOrBlank()) {
-                    SectionLabel("Key things about them", topPadding = 26.dp)
-                    Text(
-                        text = d.summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = KlickColors.TextPrimary,
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    )
-                }
+                if (!d.summary.isNullOrBlank() || d.interests.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 28.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(KlickColors.CardSurface)
+                            .padding(18.dp),
+                    ) {
+                        if (!d.summary.isNullOrBlank()) {
+                            SectionLabel("KEY THINGS ABOUT THEM", topPadding = 0.dp)
+                            Text(
+                                text = d.summary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KlickColors.TextPrimary,
+                                modifier = Modifier.fillMaxWidth().padding(top = 7.dp),
+                            )
+                        }
 
-                if (d.interests.isNotEmpty()) {
-                    SectionLabel("Worth chatting about", topPadding = 20.dp)
-                    Text(
-                        text = d.interests.joinToString(" · "),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = KlickColors.TextPrimary,
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    )
+                        if (d.interests.isNotEmpty()) {
+                            SectionLabel(
+                                "WORTH CHATTING ABOUT",
+                                topPadding = if (d.summary.isNullOrBlank()) 0.dp else 20.dp,
+                            )
+                            Text(
+                                text = d.interests.joinToString("  ·  "),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = KlickColors.TextPrimary,
+                                modifier = Modifier.fillMaxWidth().padding(top = 7.dp),
+                            )
+                        }
+                    }
                 }
             }
 
@@ -241,8 +277,8 @@ fun MatchTeaserScreen(
 private fun SectionLabel(text: String, topPadding: androidx.compose.ui.unit.Dp) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = KlickColors.TextSecondary,
+        style = KlickEyebrow,
+        color = KlickColors.TextTertiary,
         modifier = Modifier.fillMaxWidth().padding(top = topPadding),
     )
 }
