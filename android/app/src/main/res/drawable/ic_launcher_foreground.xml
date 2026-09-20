@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher foreground: the Klick mascot's resting face, same proportions as
+     ui/ListeningAvatar.kt (face 44dp, inside the 66dp adaptive-icon safe zone). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1C1B1A"
+        android:pathData="M45.2,32h17.6a13.2,13.2 0 0 1 13.2,13.2v17.6a13.2,13.2 0 0 1 -13.2,13.2h-17.6a13.2,13.2 0 0 1 -13.2,-13.2v-17.6a13.2,13.2 0 0 1 13.2,-13.2z" />
+    <path
+        android:fillColor="#FCFBFA"
+        android:pathData="M50.48,49.16h0a1.98,1.98 0 0 1 1.98,1.98v5.72a1.98,1.98 0 0 1 -1.98,1.98h-0a1.98,1.98 0 0 1 -1.98,-1.98v-5.72a1.98,1.98 0 0 1 1.98,-1.98z" />
+    <path
+        android:fillColor="#FCFBFA"
+        android:pathData="M57.52,49.16h0a1.98,1.98 0 0 1 1.98,1.98v5.72a1.98,1.98 0 0 1 -1.98,1.98h-0a1.98,1.98 0 0 1 -1.98,-1.98v-5.72a1.98,1.98 0 0 1 1.98,-1.98z" />
+    <path
+        android:fillColor="#FCFBFA"
+        android:pathData="M51.03,60.16h5.94a0.99,0.99 0 0 1 0.99,0.99v0a0.99,0.99 0 0 1 -0.99,0.99h-5.94a0.99,0.99 0 0 1 -0.99,-0.99v-0a0.99,0.99 0 0 1 0.99,-0.99z" />
+    <path
+        android:fillColor="#C97B45"
+        android:pathData="M76.90,39.40a2.4,2.4 0 1 0 4.8,0a2.4,2.4 0 1 0 -4.8,0z" />
+</vector>
