@@ -1,5 +1,6 @@
 package com.hackmit.twins.badge
 
+import com.hackmit.twins.ui.cute.rememberPressBounce
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
@@ -74,13 +75,15 @@ fun PairBadgeButton(modifier: Modifier = Modifier) {
     var paired by remember { mutableStateOf(badgePrefs(context).getBoolean(KEY_PAIRED, false)) }
     if (paired) return
 
+    val bounce = rememberPressBounce()
     OutlinedButton(
         onClick = {
             scope.runBadgeAction(context, "Couldn't pair that badge.") {
                 scanAndPair(context) { paired = true }
             }
         },
-        modifier = modifier,
+        modifier = modifier.then(bounce.modifier),
+        interactionSource = bounce.interactionSource,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, KlickColors.Border),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = KlickColors.TextPrimary),

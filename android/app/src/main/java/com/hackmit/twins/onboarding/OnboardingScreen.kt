@@ -1,5 +1,7 @@
 package com.hackmit.twins.onboarding
 
+import com.hackmit.twins.ui.cute.RiseIn
+import com.hackmit.twins.ui.cute.MascotBubble
 import kotlinx.coroutines.CancellationException
 import com.hackmit.twins.voice.VoiceRepository
 import androidx.core.content.ContextCompat
@@ -260,18 +262,13 @@ fun OnboardingScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = "Tell us about yourself",
-                style = MaterialTheme.typography.titleMedium,
-                color = KlickColors.TextPrimary,
-            )
-            Text(
-                text = "Paste anything — a bio, notes on what you're working on, what " +
-                    "you're hoping to get out of this weekend. Your twin uses this to " +
-                    "find people worth meeting.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = KlickColors.TextSecondary,
-            )
+            RiseIn {
+                MascotBubble(
+                    text = "Hi, I'm your twin! Tell me about you: what you're building, what " +
+                        "you're into, who you'd love to bump into this weekend. Type it, paste " +
+                        "it, or just say it out loud.",
+                )
+            }
 
             OutlinedTextField(
                 value = textDump,

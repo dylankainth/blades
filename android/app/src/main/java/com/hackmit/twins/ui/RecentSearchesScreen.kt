@@ -1,5 +1,7 @@
 package com.hackmit.twins.ui
 
+import com.hackmit.twins.ui.cute.RiseIn
+import com.hackmit.twins.ui.cute.MascotBubble
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -76,12 +78,13 @@ fun RecentSearchesScreen(
 
             if (feed.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Nothing yet — your twin hasn't found\nanyone nearby.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                    )
+                    RiseIn {
+                        MascotBubble(
+                            text = "Nobody yet. I'm still working the room. Go wander, I'll " +
+                                "tap you on the shoulder when it's worth it.",
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
