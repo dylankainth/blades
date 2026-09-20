@@ -3,6 +3,7 @@ package com.hackmit.twins.ui
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 
@@ -105,5 +106,19 @@ object MatchFeedRepository {
             score = (doc.getLong("score"))?.toInt(),
             reason = doc.getString("reason"),
         )
+    }
+
+    /**
+     * Removes one entry from Recent Searches — swipe-to-delete. Goes
+     * through the deleteMatch callable rather than a direct client delete
+     * since matches/{matchId} write is always false in firestore.rules
+     * (server-only). Deletes the shared doc outright, so this removes the
+     * entry for both participants, not just the caller's own view.
+     */
+    suspend fun deleteMatch(matchId: String) {
+        Firebase.functions
+            .getHttpsCallable("deleteMatch")
+            .call(hashMapOf("matchId" to matchId))
+            .await()
     }
 }

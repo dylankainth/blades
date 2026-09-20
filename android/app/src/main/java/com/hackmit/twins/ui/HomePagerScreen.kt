@@ -1,5 +1,7 @@
 package com.hackmit.twins.ui
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.VerticalPager
@@ -12,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 
 /**
@@ -40,6 +43,20 @@ fun HomePagerScreen(
 
     val pagerState = rememberPagerState(initialPage = 1) { 2 }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // The live listener above removes the row once the delete lands, so no
+    // local list mutation is needed here — just fire the call.
+    fun deleteMatch(item: MatchFeedItem) {
+        scope.launch {
+            try {
+                MatchFeedRepository.deleteMatch(item.matchId)
+            } catch (e: Exception) {
+                Log.e("HomePagerScreen", "Failed to delete match ${item.matchId}", e)
+                Toast.makeText(context, "Couldn't remove that — try again.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     VerticalPager(
         state = pagerState,
@@ -55,6 +72,7 @@ fun HomePagerScreen(
                 onOpenMatch = onOpenMatch,
                 onOpenNegotiationDetail = onOpenNegotiationDetail,
                 onBackToHome = { scope.launch { pagerState.animateScrollToPage(1) } },
+                onDelete = ::deleteMatch,
             )
             else -> HomeScreen(
                 onShowRecent = { scope.launch { pagerState.animateScrollToPage(0) } },

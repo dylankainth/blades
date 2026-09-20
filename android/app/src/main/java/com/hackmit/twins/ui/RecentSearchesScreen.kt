@@ -19,13 +19,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,12 +54,14 @@ private val TextPrimary = Color.White
 private val TextSecondary = Color(0xFFA0A0A0)
 private val Accent = Color(0xFFE0985C) // same amber family as KlickColors.Accent, brightened for a dark bg
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecentSearchesScreen(
     feed: List<MatchFeedItem>,
     onOpenMatch: (MatchFeedItem) -> Unit,
     onOpenNegotiationDetail: (MatchFeedItem) -> Unit,
     onBackToHome: () -> Unit,
+    onDelete: (MatchFeedItem) -> Unit,
 ) {
     Scaffold(containerColor = Bg) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -92,17 +99,60 @@ fun RecentSearchesScreen(
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(feed) { item ->
-                        RecentSearchRow(
+                    items(feed, key = { it.matchId }) { item ->
+                        DismissibleRecentSearchRow(
                             item = item,
                             onClick = {
                                 if (item.status == "confirmed") onOpenMatch(item) else onOpenNegotiationDetail(item)
                             },
+                            onDelete = { onDelete(item) },
                         )
                     }
                 }
             }
         }
+    }
+}
+
+/** Swipe either direction to delete — see MatchFeedRepository.deleteMatch. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DismissibleRecentSearchRow(
+    item: MatchFeedItem,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart || value == SwipeToDismissBoxValue.StartToEnd) {
+                onDelete()
+            }
+            true
+        },
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF4A1414)),
+                contentAlignment = when (dismissState.dismissDirection) {
+                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                    else -> Alignment.CenterEnd
+                },
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Delete",
+                    tint = TextPrimary,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+            }
+        },
+    ) {
+        RecentSearchRow(item = item, onClick = onClick)
     }
 }
 
