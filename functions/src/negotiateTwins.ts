@@ -28,10 +28,7 @@ import type { MatchDoc, NegotiationTurn, TwinProfile } from "./types";
 
 const NEGOTIATION_ROUNDS = 2; // each twin speaks this many times
 
-function personaSystemPrompt(
-  speaker: TwinProfile,
-  other: TwinProfile,
-): string {
+function personaSystemPrompt(speaker: TwinProfile, other: TwinProfile): string {
   return `You are the digital twin representing ${speaker.name || "a person"} at a
 networking event. Your job in this conversation is to evaluate, honestly and
 specifically, whether ${speaker.name || "your person"} should be introduced
@@ -54,6 +51,8 @@ yourself — that is handled outside this conversation by a human.`;
 }
 
 const MATCH_SCORE_THRESHOLD = 70;
+/** A "negotiating" claim older than this is treated as a crashed run. */
+const NEGOTIATION_CLAIM_TTL_MS = 3 * 60 * 1000;
 
 const CONVERGENCE_PROMPT = `Based on this whole exchange, respond with ONLY a raw JSON object (no
 markdown fences, no commentary) with exactly two fields: "score" (an integer
@@ -80,7 +79,7 @@ export interface RunNegotiationResult {
 export async function runNegotiation(
   twinIdA: string,
   twinIdB: string,
-  opts: { locationId?: string; apiKey: string },
+  opts: { locationId?: string; apiKey: string; force?: boolean },
 ): Promise<RunNegotiationResult> {
   const [twinASnap, twinBSnap] = await Promise.all([
     db.collection("twins").doc(twinIdA).get(),
@@ -97,95 +96,148 @@ export async function runNegotiation(
   const matchId = [twinIdA, twinIdB].sort().join("_");
   const matchRef = db.collection("matches").doc(matchId);
 
-  const transcript: NegotiationTurn[] = [];
-  // Conversation history from twin A's point of view and twin B's point of
-  // view are mirror images of each other (each sees the other as "user").
-  const historyForA: MetaModelMessage[] = [];
-  const historyForB: MetaModelMessage[] = [];
-
-  const speak = async (
-    speakerId: string,
-    speakerProfile: TwinProfile,
-    otherProfile: TwinProfile,
-    history: MetaModelMessage[],
-  ): Promise<string> => {
-    const reply = await callMetaModel({
-      apiKey: opts.apiKey,
-      system: personaSystemPrompt(speakerProfile, otherProfile),
-      messages:
-        history.length > 0
-          ? history
-          : [
-              {
-                role: "user",
-                content:
-                  "Open the conversation: briefly say what you're hoping to find for your person.",
-              },
-            ],
-    });
-    transcript.push({
-      speakerTwinId: speakerId,
-      content: reply,
-      ts: Timestamp.now(),
-    });
-    return reply;
+  const names = {
+    [twinIdA]: twinA.name || "Someone nearby",
+    [twinIdB]: twinB.name || "Someone nearby",
+  };
+  const photoUrls = {
+    [twinIdA]: twinA.photoUrl ?? null,
+    [twinIdB]: twinB.photoUrl ?? null,
   };
 
-  for (let round = 0; round < NEGOTIATION_ROUNDS; round++) {
-    const replyA = await speak(twinIdA, twinA, twinB, historyForA);
-    historyForA.push({ role: "assistant", content: replyA });
-    historyForB.push({ role: "user", content: replyA });
+  // Claim the pair before spending any model calls. Both phones detect each
+  // other within milliseconds, so without this two onCheckin triggers run the
+  // same negotiation twice in parallel. The early "negotiating" write is also
+  // what lets a badge (boxState.ts) and the dashboard show the twins talking
+  // while it happens. A stale claim (crashed run) can be retaken.
+  const claimed = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(matchRef);
+    if (snap.exists && !opts.force) {
+      const existing = snap.data() as MatchDoc;
+      const updatedMs = existing.updatedAt?.toMillis() ?? 0;
+      const stale =
+        existing.status === "negotiating" &&
+        Date.now() - updatedMs > NEGOTIATION_CLAIM_TTL_MS;
+      if (!stale) return false;
+    }
+    tx.set(matchRef, {
+      matchId,
+      twinIds: [twinIdA, twinIdB].sort(),
+      locationId: opts.locationId ?? null,
+      transcript: [],
+      reason: null,
+      score: null,
+      status: "negotiating",
+      names,
+      photoUrls,
+      shakes: {},
+      metAt: null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
 
-    const replyB = await speak(twinIdB, twinB, twinA, historyForB);
-    historyForB.push({ role: "assistant", content: replyB });
-    historyForA.push({ role: "user", content: replyB });
+  if (!claimed) {
+    const existing = (await matchRef.get()).data() as MatchDoc;
+    return {
+      matchId,
+      reason: existing.reason ?? null,
+      score: existing.score ?? null,
+      isMatch: existing.status === "confirmed",
+      transcript: existing.transcript ?? [],
+    };
   }
 
-  // Ask twin A's persona to converge on a final score + reason.
-  const convergenceRaw = await callMetaModel({
-    apiKey: opts.apiKey,
-    system: personaSystemPrompt(twinA, twinB),
-    messages: [...historyForA, { role: "user", content: CONVERGENCE_PROMPT }],
-  });
-  const convergence = parseConvergence(convergenceRaw);
-  const isMatch = convergence.score >= MATCH_SCORE_THRESHOLD;
+  try {
+    const transcript: NegotiationTurn[] = [];
+    // Conversation history from twin A's point of view and twin B's point of
+    // view are mirror images of each other (each sees the other as "user").
+    const historyForA: MetaModelMessage[] = [];
+    const historyForB: MetaModelMessage[] = [];
 
-  const matchDoc: Partial<MatchDoc> = {
-    matchId,
-    twinIds: [twinIdA, twinIdB].sort() as [string, string],
-    locationId: opts.locationId ?? null,
-    transcript,
-    // Kept regardless of outcome — the "why not" is exactly what a
-    // dismissed match's detail view shows (see HomeScreen's feed).
-    reason: convergence.reason || null,
-    score: convergence.score,
-    // "confirmed" here only means "worth surfacing to the humans" — see
-    // file header. notifyMatch reacts to this and sends a push notification
-    // with a "say hi" prompt; nothing is auto-messaged or auto-scheduled.
-    status: isMatch ? "confirmed" : "dismissed",
-    names: {
-      [twinIdA]: twinA.name || "Someone nearby",
-      [twinIdB]: twinB.name || "Someone nearby",
-    },
-    photoUrls: {
-      [twinIdA]: twinA.photoUrl ?? null,
-      [twinIdB]: twinB.photoUrl ?? null,
-    },
-    updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
-  };
+    const speak = async (
+      speakerId: string,
+      speakerProfile: TwinProfile,
+      otherProfile: TwinProfile,
+      history: MetaModelMessage[],
+    ): Promise<string> => {
+      const reply = await callMetaModel({
+        apiKey: opts.apiKey,
+        system: personaSystemPrompt(speakerProfile, otherProfile),
+        messages:
+          history.length > 0
+            ? history
+            : [
+                {
+                  role: "user",
+                  content:
+                    "Open the conversation: briefly say what you're hoping to find for your person.",
+                },
+              ],
+      });
+      transcript.push({
+        speakerTwinId: speakerId,
+        content: reply,
+        ts: Timestamp.now(),
+      });
+      return reply;
+    };
 
-  await matchRef.set(
-    { ...matchDoc, createdAt: FieldValue.serverTimestamp() },
-    { merge: true },
-  );
+    for (let round = 0; round < NEGOTIATION_ROUNDS; round++) {
+      const replyA = await speak(twinIdA, twinA, twinB, historyForA);
+      historyForA.push({ role: "assistant", content: replyA });
+      historyForB.push({ role: "user", content: replyA });
 
-  return {
-    matchId,
-    reason: matchDoc.reason ?? null,
-    score: convergence.score,
-    isMatch,
-    transcript,
-  };
+      const replyB = await speak(twinIdB, twinB, twinA, historyForB);
+      historyForB.push({ role: "assistant", content: replyB });
+      historyForA.push({ role: "user", content: replyB });
+    }
+
+    // Ask twin A's persona to converge on a final score + reason.
+    const convergenceRaw = await callMetaModel({
+      apiKey: opts.apiKey,
+      system: personaSystemPrompt(twinA, twinB),
+      messages: [...historyForA, { role: "user", content: CONVERGENCE_PROMPT }],
+    });
+    const convergence = parseConvergence(convergenceRaw);
+    const isMatch = convergence.score >= MATCH_SCORE_THRESHOLD;
+
+    const matchDoc: Partial<MatchDoc> = {
+      matchId,
+      twinIds: [twinIdA, twinIdB].sort() as [string, string],
+      locationId: opts.locationId ?? null,
+      transcript,
+      // Kept regardless of outcome — the "why not" is exactly what a
+      // dismissed match's detail view shows (see HomeScreen's feed).
+      reason: convergence.reason || null,
+      score: convergence.score,
+      // "confirmed" here only means "worth surfacing to the humans" — see
+      // file header. notifyMatch reacts to this and sends a push notification
+      // with a "say hi" prompt; nothing is auto-messaged or auto-scheduled.
+      status: isMatch ? "confirmed" : "dismissed",
+      names,
+      photoUrls,
+      updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
+    };
+
+    await matchRef.set(matchDoc, { merge: true });
+
+    return {
+      matchId,
+      reason: matchDoc.reason ?? null,
+      score: convergence.score,
+      isMatch,
+      transcript,
+    };
+  } catch (err) {
+    // Release the claim so the next detection can retry, instead of leaving
+    // the pair stuck on "negotiating" until the TTL expires.
+    await matchRef.delete().catch((deleteErr) => {
+      console.error(`Failed to release claim on ${matchId}:`, deleteErr);
+    });
+    throw err;
+  }
 }
 
 /** Best-effort JSON parse with a safe fallback — a malformed convergence
@@ -195,9 +247,10 @@ function parseConvergence(raw: string): Convergence {
   try {
     const jsonText = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
     const parsed = JSON.parse(jsonText) as Partial<Convergence>;
-    const score = typeof parsed.score === "number"
-      ? Math.max(0, Math.min(100, Math.round(parsed.score)))
-      : 0;
+    const score =
+      typeof parsed.score === "number"
+        ? Math.max(0, Math.min(100, Math.round(parsed.score)))
+        : 0;
     const reason = typeof parsed.reason === "string" ? parsed.reason : "";
     return { score, reason };
   } catch (err) {
@@ -220,7 +273,12 @@ export const negotiateTwins = onCall<NegotiateTwinsRequest>(
   },
   async (request) => {
     const { twinIdA, twinIdB, locationId } = request.data ?? {};
-    if (!twinIdA || !twinIdB || typeof twinIdA !== "string" || typeof twinIdB !== "string") {
+    if (
+      !twinIdA ||
+      !twinIdB ||
+      typeof twinIdA !== "string" ||
+      typeof twinIdB !== "string"
+    ) {
       throw new HttpsError(
         "invalid-argument",
         "twinIdA and twinIdB are required.",

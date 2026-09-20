@@ -34,8 +34,9 @@ export interface OnboardingSession {
 /** checkins/{locationId}/people/{twinId} */
 export interface CheckinEntry {
   twinId: string;
-  locationId: string;
-  checkedInAt: Timestamp;
+  locationId?: string;
+  /** Written by the Android client (CheckinRepository.kt) on every detection. */
+  lastSeenAt?: Timestamp;
 }
 
 export type MatchStatus =
@@ -70,6 +71,43 @@ export interface MatchDoc {
    */
   names: Record<string, string>;
   photoUrls: Record<string, string | null>;
+  /** Per-twin timestamp of the last badge shake/bump while this match was live. */
+  shakes?: Record<string, Timestamp>;
+  /** Set once both people confirmed they met (see boxEvent.ts). */
+  metAt?: Timestamp | null;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+}
+
+/** What a Kindred badge (ESP32-S3-BOX-3) should be showing right now. */
+export type BoxState =
+  | "unpaired"
+  | "paired_wave"
+  | "idle"
+  | "negotiating"
+  | "match"
+  | "no_match"
+  | "met";
+
+/** boxes/{boxId} — one physical badge. Only Cloud Functions touch this. */
+export interface BoxDoc {
+  boxId: string;
+  twinId: string | null;
+  /** 8-byte hex token the badge advertises over BLE on its owner's behalf. */
+  bleToken?: string | null;
+  pairedAt?: Timestamp;
+  /** The badge plays its hello wave until this moment. */
+  waveUntil?: Timestamp;
+  lastPolledAt?: Timestamp;
+  lastShakeAt?: Timestamp;
+}
+
+/** JSON body returned by GET boxState — the whole firmware contract. */
+export interface BoxStateResponse {
+  state: BoxState;
+  ownerName: string | null;
+  otherName: string | null;
+  colorHex: string | null;
+  bleToken: string | null;
+  matchId: string | null;
 }

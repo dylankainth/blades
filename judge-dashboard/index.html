@@ -342,8 +342,8 @@
                 el.className = `match-item ${isActive ? "active" : ""}`;
                 el.innerHTML = `
                     <div class="match-item-header">${twin1} <span style="color: #666;">↔</span> ${twin2}</div>
-                    <div class="match-item-status ${status === "complete" ? "" : "active"}">
-                        ${status === "complete" ? "✓ Complete" : '<span class="loading-spinner"></span>Negotiating'}
+                    <div class="match-item-status ${isComplete(status) ? "" : "active"}">
+                        ${isComplete(status) ? (status === "confirmed" ? "✓ Match" : "✕ No match") : '<span class="loading-spinner"></span>Negotiating'}
                     </div>
                 `;
                 el.addEventListener("click", () => {
@@ -381,7 +381,10 @@
                 const msg = document.createElement("div");
                 msg.className = "transcript-message";
 
-                const speaker = turn.speaker || "Unknown";
+                // Backend turns are {speakerTwinId, content}; names live on
+                // the match doc (see functions/src/types.ts).
+                const speaker =
+                    (match.names && match.names[turn.speakerTwinId]) || "Unknown";
                 const initials = speaker
                     .split(" ")
                     .map((w) => w[0])
@@ -391,19 +394,19 @@
                 msg.innerHTML = `
                     <div class="transcript-avatar">${initials}</div>
                     <div class="transcript-bubble">
-                        <div class="transcript-speaker">${speaker}</div>
-                        <div class="transcript-text">${escapeHtml(turn.text)}</div>
+                        <div class="transcript-speaker">${escapeHtml(speaker)}</div>
+                        <div class="transcript-text">${escapeHtml(turn.content || "")}</div>
                     </div>
                 `;
                 container.appendChild(msg);
             });
 
             // Render final reason if negotiation is complete
-            if (match.status === "complete" && match.reason) {
+            if (isComplete(match.status) && match.reason) {
                 const reasonEl = document.createElement("div");
                 reasonEl.className = "transcript-reason";
                 reasonEl.innerHTML = `
-                    <div class="transcript-reason-label">Why They Should Meet</div>
+                    <div class="transcript-reason-label">${match.status === "confirmed" ? "Why They Should Meet" : "Why Not"}</div>
                     <div class="transcript-reason-text">${escapeHtml(match.reason)}</div>
                 `;
                 container.appendChild(reasonEl);
@@ -419,6 +422,11 @@
         // ============================================================
         // Utility: Escape HTML
         // ============================================================
+        // The backend writes "negotiating" first, then "confirmed" or "dismissed".
+        function isComplete(status) {
+            return status === "confirmed" || status === "dismissed";
+        }
+
         function escapeHtml(text) {
             const div = document.createElement("div");
             div.textContent = text;
