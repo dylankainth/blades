@@ -31,7 +31,8 @@ import com.hackmit.twins.auth.AuthManager
 import com.hackmit.twins.auth.SignInScreen
 import com.hackmit.twins.auth.SignUpScreen
 import com.hackmit.twins.ble.BleProximityService
-import com.hackmit.twins.match.MatchScreen
+import com.hackmit.twins.match.MatchTeaserScreen
+import com.hackmit.twins.match.RadarScreen
 import com.hackmit.twins.onboarding.OnboardingScreen
 import com.hackmit.twins.ui.HomePagerScreen
 import com.hackmit.twins.ui.WelcomeScreen
@@ -48,24 +49,31 @@ private object Routes {
     const val SIGN_UP = "sign_up"
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
-    const val MATCH = "match"
+    const val MATCH_TEASER = "match_teaser"
+    const val RADAR = "radar"
     const val NEGOTIATION_DETAIL = "negotiation_detail"
 }
 
-/** State for a pending match notification tap, held outside NavHost args
- *  since the photo URL / reason text don't fit cleanly into a nav route. */
-private data class PendingMatch(
-    val twinId: String,
-    val name: String,
-    val photoUrl: String?,
-    val reason: String,
-)
+/**
+ * State for a pending notification tap (or a Home feed tap on a confirmed
+ * match), held outside NavHost args since it doesn't fit cleanly into a
+ * nav route string. Two kinds, matching the two notification types:
+ *  - Teaser: "your twin found someone" -> MatchTeaserScreen. Only needs a
+ *    matchId; everything else is live-fetched from the match doc.
+ *  - Radar: "you're both in" -> RadarScreen, once both people approved.
+ *    Carries the already-revealed name/photo straight from the push
+ *    payload — no extra fetch needed.
+ */
+private sealed class PendingNav {
+    data class Teaser(val matchId: String) : PendingNav()
+    data class Radar(val otherTwinId: String, val otherName: String, val otherPhotoUrl: String?) : PendingNav()
+}
 
 class MainActivity : ComponentActivity() {
 
-    // Plain Activity field holding the most recent match-notification tap;
-    // read once into Compose state inside setContent (see onCreate below).
-    private var latestPendingMatch: PendingMatch? = null
+    // Plain Activity field holding the most recent notification tap; read
+    // once into Compose state inside setContent (see onCreate below).
+    private var latestPendingNav: PendingNav? = null
 
     private val bluetoothPermissions: Array<String>
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -89,25 +97,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        latestPendingMatch = extractPendingMatch(intent)
+        latestPendingNav = extractPendingNav(intent)
 
         setContent {
             DigitalTwinsTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
-                    var pendingMatch by remember { mutableStateOf(latestPendingMatch) }
+                    var pendingNav by remember { mutableStateOf(latestPendingNav) }
 
-                    LaunchedEffect(pendingMatch) {
-                        if (pendingMatch != null) {
-                            navController.navigate(Routes.MATCH)
+                    LaunchedEffect(pendingNav) {
+                        when (pendingNav) {
+                            is PendingNav.Teaser -> navController.navigate(Routes.MATCH_TEASER)
+                            is PendingNav.Radar -> navController.navigate(Routes.RADAR)
+                            null -> {}
                         }
                     }
 
                     AppNavHost(
                         navController = navController,
-                        pendingMatch = pendingMatch,
-                        onMatchHandled = { pendingMatch = null },
-                        onSelectMatch = { pendingMatch = it },
+                        pendingNav = pendingNav,
+                        onNavHandled = { pendingNav = null },
+                        onSelectNav = { pendingNav = it },
                         onAuthenticated = { startBlePipeline() },
                     )
                 }
@@ -118,7 +128,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        extractPendingMatch(intent)?.let { latestPendingMatch = it }
+        extractPendingNav(intent)?.let { latestPendingNav = it }
         // Note: with singleTop launch mode + Compose state living in
         // setContent's recomposition scope, a fresh notification tap while
         // the Activity is already open re-enters here; wiring this into the
@@ -145,33 +155,40 @@ class MainActivity : ComponentActivity() {
         ContextCompat.startForegroundService(this, Intent(this, BleProximityService::class.java))
     }
 
-    private fun extractPendingMatch(intent: Intent?): PendingMatch? {
-        if (intent?.action != ACTION_OPEN_MATCH) return null
-        val twinId = intent.getStringExtra(EXTRA_MATCHED_TWIN_ID) ?: return null
-        return PendingMatch(
-            twinId = twinId,
-            name = intent.getStringExtra(EXTRA_MATCHED_NAME) ?: "Someone nearby",
-            photoUrl = intent.getStringExtra(EXTRA_MATCHED_PHOTO_URL),
-            reason = intent.getStringExtra(EXTRA_MATCH_REASON)
-                ?: "Your twin thinks you two should talk.",
-        )
+    private fun extractPendingNav(intent: Intent?): PendingNav? {
+        return when (intent?.action) {
+            ACTION_OPEN_TEASER -> {
+                val matchId = intent.getStringExtra(EXTRA_MATCH_ID) ?: return null
+                PendingNav.Teaser(matchId)
+            }
+            ACTION_OPEN_RADAR -> {
+                val otherTwinId = intent.getStringExtra(EXTRA_MATCHED_TWIN_ID) ?: return null
+                PendingNav.Radar(
+                    otherTwinId = otherTwinId,
+                    otherName = intent.getStringExtra(EXTRA_MATCHED_NAME) ?: "Someone nearby",
+                    otherPhotoUrl = intent.getStringExtra(EXTRA_MATCHED_PHOTO_URL),
+                )
+            }
+            else -> null
+        }
     }
 
     companion object {
-        const val ACTION_OPEN_MATCH = "com.hackmit.twins.action.OPEN_MATCH"
+        const val ACTION_OPEN_TEASER = "com.hackmit.twins.action.OPEN_TEASER"
+        const val ACTION_OPEN_RADAR = "com.hackmit.twins.action.OPEN_RADAR"
+        const val EXTRA_MATCH_ID = "matchId"
         const val EXTRA_MATCHED_TWIN_ID = "matchedTwinId"
         const val EXTRA_MATCHED_NAME = "matchedName"
         const val EXTRA_MATCHED_PHOTO_URL = "matchedPhotoUrl"
-        const val EXTRA_MATCH_REASON = "matchReason"
     }
 }
 
 @Composable
 private fun AppNavHost(
     navController: NavHostController,
-    pendingMatch: PendingMatch?,
-    onMatchHandled: () -> Unit,
-    onSelectMatch: (PendingMatch) -> Unit,
+    pendingNav: PendingNav?,
+    onNavHandled: () -> Unit,
+    onSelectNav: (PendingNav) -> Unit,
     onAuthenticated: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -286,15 +303,8 @@ private fun AppNavHost(
             HomePagerScreen(
                 twinId = twinId,
                 onOpenMatch = { item ->
-                    onSelectMatch(
-                        PendingMatch(
-                            twinId = item.otherTwinId,
-                            name = item.otherName,
-                            photoUrl = item.otherPhotoUrl,
-                            reason = item.reason ?: "Your twin thinks you two should talk.",
-                        ),
-                    )
-                    navController.navigate(Routes.MATCH)
+                    onSelectNav(PendingNav.Teaser(item.matchId))
+                    navController.navigate(Routes.MATCH_TEASER)
                 },
                 onOpenNegotiationDetail = { item ->
                     selectedNegotiationItem = item
@@ -309,21 +319,33 @@ private fun AppNavHost(
             LaunchedEffect(item.matchId) {
                 negotiationDetail = MatchFeedRepository.fetchDetail(item.matchId, twinId)
             }
-            NegotiationDetailScreen(otherName = item.otherName, detail = negotiationDetail)
+            NegotiationDetailScreen(detail = negotiationDetail)
         }
-        composable(Routes.MATCH) {
-            val match = pendingMatch
-            if (match != null) {
-                MatchScreen(
-                    matchedName = match.name,
-                    matchedPhotoUrl = match.photoUrl,
-                    reason = match.reason,
-                    onSayHiConfirmed = {
-                        onMatchHandled()
-                        navController.popBackStack(Routes.HOME, inclusive = false)
-                    },
-                )
-            }
+        composable(Routes.MATCH_TEASER) {
+            val teaser = pendingNav as? PendingNav.Teaser ?: return@composable
+            val twinId = AuthManager.currentTwinIdOrNull() ?: return@composable
+            MatchTeaserScreen(
+                matchId = teaser.matchId,
+                myTwinId = twinId,
+                onCancelled = {
+                    onNavHandled()
+                    navController.popBackStack(Routes.HOME, inclusive = false)
+                },
+                onRevealed = { otherTwinId, otherName, otherPhotoUrl ->
+                    onSelectNav(PendingNav.Radar(otherTwinId, otherName, otherPhotoUrl))
+                    navController.navigate(Routes.RADAR) {
+                        popUpTo(Routes.MATCH_TEASER) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(Routes.RADAR) {
+            val radar = pendingNav as? PendingNav.Radar ?: return@composable
+            RadarScreen(
+                otherTwinId = radar.otherTwinId,
+                otherName = radar.otherName,
+                otherPhotoUrl = radar.otherPhotoUrl,
+            )
         }
     }
 }

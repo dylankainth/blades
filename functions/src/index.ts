@@ -5,3 +5,4 @@ export { onboardingChat } from "./onboardingChat";
 export { onCheckin } from "./onCheckin";
 export { negotiateTwins } from "./negotiateTwins";
 export { notifyMatch } from "./notifyMatch";
+export { submitMatchApproval } from "./submitMatchApproval";

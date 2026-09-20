@@ -32,18 +32,25 @@ import com.hackmit.twins.ui.theme.KindredDisplayNumeral
  * on. Read-only, no actions: this is transparency into what the twins
  * actually discussed, not something to act on (that's MatchScreen's job,
  * for actual matches).
+ *
+ * Only ever reached for a non-match (see MainActivity's routing), so the
+ * title deliberately never shows the other person's real name — a
+ * rejected candidate isn't identified, even to the person who tapped in.
+ * The transcript body below may still reference their name in-character
+ * (the twins' own dialogue), which is a conscious, narrower trade-off —
+ * see CLAUDE.md / the Firestore rules comment on matches/judge_feed for
+ * the fuller anonymization story.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NegotiationDetailScreen(
-    otherName: String,
     detail: NegotiationDetail?,
 ) {
     Scaffold(
         containerColor = KindredColors.PageBackground,
         topBar = {
             TopAppBar(
-                title = { Text(otherName) },
+                title = { Text("Someone nearby") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = KindredColors.PageBackground,
                 ),

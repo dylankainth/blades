@@ -12,18 +12,20 @@ import com.hackmit.twins.MainActivity
 import com.hackmit.twins.R
 
 /**
- * Receives the match notification pushed by the backend once the matching
- * engine (running over the shortlist from a Firestore checkin, per
- * CLAUDE.md) decides two twins should meet.
+ * Receives the two push notification types the backend sends around a
+ * match:
+ *  - "open_teaser" (notifyMatch.ts): the negotiation confirmed a pair is
+ *    worth surfacing. Deliberately doesn't name-drop who it is in the
+ *    notification text — tapping opens MatchTeaserScreen, which shows a
+ *    real photo but a *blurred* name, for a human to approve/disapprove.
+ *  - "open_radar" (submitMatchApproval.ts): both people approved. Opens
+ *    RadarScreen, where identity is fully revealed and a live BLE signal
+ *    helps the two people find each other.
  *
- * Tone matters here per CLAUDE.md: this reads as a message from *your own
- * agent*, not a corporate "you have a new match!" alert, and it always
- * surfaces one concrete plain-language reason — never a score/percentage.
- * Tapping it opens MatchScreen for a human-in-the-loop "say hi" — it never
- * auto-sends a message or auto-books anything on the user's behalf.
- *
- * Expected RemoteMessage.data payload (set by the backend):
- *   matchedTwinId, matchedName, matchedPhotoUrl, reason
+ * Tone matters per CLAUDE.md: this reads as a message from *your own
+ * agent*, never a corporate "you have a new match!" alert, and it never
+ * auto-sends a message or auto-books anything — every step here just opens
+ * a screen for a human to decide on.
  */
 class TwinMessagingService : FirebaseMessagingService() {
 
@@ -31,78 +33,105 @@ class TwinMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         // TODO: send `token` up to Firestore/backend, keyed by twinId, so
         // the matching Cloud Function knows where to deliver match pushes
-        // for this device. (Needs twinId, which requires the anonymous-auth
-        // sign-in from AuthManager to have already happened — wire this up
-        // once MainActivity's startup sequencing is finalized.)
+        // for this device. (Needs twinId, which requires sign-in to have
+        // already happened — wire this up once MainActivity's startup
+        // sequencing is finalized.)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
 
         val data = message.data
-        val matchedTwinId = data["matchedTwinId"] ?: return
-        val matchedName = data["matchedName"] ?: "Someone nearby"
-        val matchedPhotoUrl = data["matchedPhotoUrl"]
-        val reason = data["reason"]
-            ?: "Your twin thinks you two should talk."
-
-        showMatchNotification(matchedTwinId, matchedName, matchedPhotoUrl, reason)
+        when (data["action"]) {
+            "open_teaser" -> showTeaserNotification(data)
+            "open_radar" -> showRadarNotification(data)
+        }
     }
 
-    private fun showMatchNotification(
-        matchedTwinId: String,
-        matchedName: String,
-        matchedPhotoUrl: String?,
-        reason: String,
+    private fun showTeaserNotification(data: Map<String, String>) {
+        val matchId = data["matchId"] ?: return
+        val reason = data["reason"] ?: "Your twin thinks you two should talk."
+        val photoUrl = data["otherPhotoUrl"]
+
+        val contentIntent = Intent(this, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_OPEN_TEASER
+            putExtra(MainActivity.EXTRA_MATCH_ID, matchId)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
+        notify(
+            channelId = getString(R.string.match_notification_channel_id),
+            channelName = getString(R.string.match_notification_channel_name),
+            requestCode = matchId.hashCode(),
+            title = "Your twin found someone",
+            body = reason,
+            photoUrl = photoUrl,
+            contentIntent = contentIntent,
+        )
+    }
+
+    private fun showRadarNotification(data: Map<String, String>) {
+        val otherTwinId = data["otherTwinId"] ?: return
+        val otherName = data["otherName"] ?: "Someone nearby"
+        val photoUrl = data["otherPhotoUrl"]
+
+        val contentIntent = Intent(this, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_OPEN_RADAR
+            putExtra(MainActivity.EXTRA_MATCHED_TWIN_ID, otherTwinId)
+            putExtra(MainActivity.EXTRA_MATCHED_NAME, otherName)
+            putExtra(MainActivity.EXTRA_MATCHED_PHOTO_URL, photoUrl)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
+        notify(
+            channelId = getString(R.string.match_notification_channel_id),
+            channelName = getString(R.string.match_notification_channel_name),
+            requestCode = otherTwinId.hashCode() xor 1, // distinct from the teaser notification for the same pair
+            title = "You're both in!",
+            body = "$otherName said yes too — go find each other.",
+            photoUrl = photoUrl,
+            contentIntent = contentIntent,
+        )
+    }
+
+    private fun notify(
+        channelId: String,
+        channelName: String,
+        requestCode: Int,
+        title: String,
+        body: String,
+        photoUrl: String?,
+        contentIntent: Intent,
     ) {
-        val channelId = getString(R.string.match_notification_channel_id)
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(channelId) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(
-                    channelId,
-                    getString(R.string.match_notification_channel_name),
-                    NotificationManager.IMPORTANCE_HIGH, // this is the whole product; should heads-up
-                ),
+                NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH),
             )
         }
 
-        val contentIntent = Intent(this, MainActivity::class.java).apply {
-            action = MainActivity.ACTION_OPEN_MATCH
-            putExtra(MainActivity.EXTRA_MATCHED_TWIN_ID, matchedTwinId)
-            putExtra(MainActivity.EXTRA_MATCHED_NAME, matchedName)
-            putExtra(MainActivity.EXTRA_MATCHED_PHOTO_URL, matchedPhotoUrl)
-            putExtra(MainActivity.EXTRA_MATCH_REASON, reason)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
         val pendingIntent = PendingIntent.getActivity(
             this,
-            matchedTwinId.hashCode(),
+            requestCode,
             contentIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        // "Sarah's twin and I think you two should talk — she's stuck on the
-        // same devops problem you solved." Personal, specific, not a score.
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Your twin found someone: $matchedName")
-            .setContentText(reason)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(reason))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            // Deliberately no auto-send / auto-schedule action button here —
-            // tapping only opens MatchScreen for a human to decide. See
-            // CLAUDE.md guardrails.
-            .addAction(0, "Say hi", pendingIntent)
             .build()
 
-        // TODO(photo): load matchedPhotoUrl into a large-icon bitmap (e.g.
-        // via Coil's ImageLoader) before building the notification above —
-        // left as a follow-up since notification building here is
-        // synchronous and bitmap loading is not.
+        // TODO(photo): load photoUrl into a large-icon bitmap (e.g. via
+        // Coil's ImageLoader) before building the notification above — left
+        // as a follow-up since notification building here is synchronous
+        // and bitmap loading is not.
 
-        NotificationManagerCompat.from(this).notify(matchedTwinId.hashCode(), notification)
+        NotificationManagerCompat.from(this).notify(requestCode, notification)
     }
 }
