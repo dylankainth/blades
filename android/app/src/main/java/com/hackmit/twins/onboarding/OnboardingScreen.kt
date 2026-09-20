@@ -129,6 +129,10 @@ fun OnboardingScreen(
     var textDump by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
     var submitError by remember { mutableStateOf<String?>(null) }
+    // Flips on once submitTextDump's real network calls have finished; while
+    // true we show the fake "building your twin" screen for a few seconds
+    // (see TwinBuildingScreen) before actually navigating to Home.
+    var isBuildingTwin by remember { mutableStateOf(false) }
 
     var fbName by remember { mutableStateOf<String?>(null) }
     var instagramHandle by remember { mutableStateOf("") }
@@ -194,10 +198,12 @@ fun OnboardingScreen(
                         "Got it. I'll keep an eye out for people worth meeting, and only interrupt you when it counts.",
                     )
                 }
-                onOnboardingComplete()
+                // Real work is done — hand off to the fake "building your
+                // twin" screen, which calls onOnboardingComplete itself once
+                // its animation finishes.
+                isBuildingTwin = true
             } catch (e: Exception) {
                 submitError = "Couldn't save that just now — mind trying again? (${e.message})"
-            } finally {
                 isSubmitting = false
             }
         }
@@ -253,6 +259,11 @@ fun OnboardingScreen(
                 socialStatusMessage = "Couldn't read that PDF. (${e.message})"
             }
         }
+    }
+
+    if (isBuildingTwin) {
+        TwinBuildingScreen(onComplete = onOnboardingComplete)
+        return
     }
 
     Scaffold(
