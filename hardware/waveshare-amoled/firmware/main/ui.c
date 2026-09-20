@@ -20,6 +20,12 @@
 #define BATTERY_EVERY   10     // battery gauge is read every Nth Wi-Fi refresh
 #define LUMA_DARK_INK   150    // backgrounds brighter than this get black ink
 
+// A new match strobes between white and the pair colour so it catches the eye
+// across a room, then holds the pair colour. Even toggle count: ends on colour.
+#define COLOR_FLASH        0xffffff
+#define MATCH_FLASH_MS     300
+#define MATCH_FLASH_TOGGLES 24
+
 // Badge screens: mascot in the upper part, name / greeting centred below it.
 #define CREATURE_TOP    30
 #define TITLE_WIDTH     340
@@ -43,6 +49,8 @@ static lv_obj_t *s_pair_panel;
 static lv_obj_t *s_wifi_label;
 static lv_obj_t *s_battery_label;
 static lv_timer_t *s_transient_timer;
+static lv_timer_t *s_flash_timer;
+static uint32_t s_flash_left;
 static badge_state_t s_shown;
 static bool s_has_shown;
 
@@ -86,6 +94,41 @@ static void show_badge(uint32_t bg_rgb, const char *title, creature_mood_t mood,
     set_title(title, ink);
     creature_set_colors(ink, bg, accents);
     creature_set_mood(mood);
+}
+
+// Recolours the badge layout in place, leaving title text and mood running.
+static void repaint_badge(uint32_t bg_rgb, bool accents)
+{
+    const lv_color_t bg = lv_color_hex(bg_rgb);
+    const lv_color_t ink = is_bright(bg_rgb) ? lv_color_black() : lv_color_hex(COLOR_INK);
+    lv_obj_set_style_bg_color(lv_screen_active(), bg, 0);
+    lv_obj_set_style_text_color(s_title, ink, 0);
+    creature_set_colors(ink, bg, accents);
+}
+
+static void on_flash_tick(lv_timer_t *timer)
+{
+    (void)timer;
+    s_flash_left--;
+    repaint_badge((s_flash_left % 2) ? COLOR_FLASH : s_shown.color_rgb, false);
+    if (s_flash_left == 0) {
+        s_flash_timer = NULL;   // repeat count spent: LVGL deletes it after this callback
+    }
+}
+
+static void cancel_flash(void)
+{
+    if (s_flash_timer != NULL) {
+        lv_timer_delete(s_flash_timer);
+        s_flash_timer = NULL;
+    }
+}
+
+static void start_flash(void)
+{
+    s_flash_left = MATCH_FLASH_TOGGLES;
+    s_flash_timer = lv_timer_create(on_flash_tick, MATCH_FLASH_MS, NULL);
+    lv_timer_set_repeat_count(s_flash_timer, MATCH_FLASH_TOGGLES);
 }
 
 static void show_pairing(void)
@@ -160,7 +203,11 @@ void ui_apply_state(const badge_state_t *state)
         return;   // same one-off state, only details changed: do not replay it
     }
     cancel_transient();
+    cancel_flash();
     render(state);
+    if (state_changed && state->state == STATE_MATCH) {
+        start_flash();   // only on entering the match, not when its details change
+    }
     if (is_transient(state->state)) {
         s_transient_timer = lv_timer_create(on_transient_done, TRANSIENT_ANIM_MS, NULL);
         lv_timer_set_repeat_count(s_transient_timer, 1);
