@@ -135,6 +135,42 @@ export interface NegotiationTurn {
   ts?: Timestamp;
 }
 
+/**
+ * What ONE negotiation cost, totalled across every model call it made (the
+ * back-and-forth turns plus the convergence call). Built by
+ * lib/negotiationUsage.ts. Stored as matches/{matchId}.usage for a
+ * negotiation that reached a verdict, confirmed or dismissed alike, so the
+ * cost of a cheap rejection is as measurable as the cost of a match.
+ */
+export interface NegotiationUsage {
+  /** Model API responses received, including one that came back empty. */
+  modelCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  /** inputTokens + outputTokens. */
+  totalTokens: number;
+  /** Wall-clock time from runNegotiation starting to its verdict (or failure). */
+  durationMs: number;
+  /** Model id + reasoning effort the calls were made with (see lib/metaModel.ts). */
+  model: string;
+  effort: "low" | "medium" | "high";
+}
+
+/**
+ * negotiation_usage/{autoId}: usage for a negotiation that spent tokens
+ * but left NO matches/{matchId} doc behind to carry it, i.e. a run that
+ * threw partway through, whose claim negotiateTwins.ts then deletes.
+ * Server-only (Admin SDK; firestore.rules' default deny covers clients).
+ */
+export interface NegotiationUsageDoc {
+  matchId: string;
+  twinIds: [string, string];
+  locationId?: string | null;
+  outcome: "failed";
+  usage: NegotiationUsage;
+  createdAt?: Timestamp;
+}
+
 /** matches/{matchId} */
 export interface MatchDoc {
   matchId: string;
@@ -170,6 +206,8 @@ export interface MatchDoc {
   /** Per-twin human approval of the reveal — see RevealStatus. */
   humanApprovals?: Record<string, "approved" | "declined">;
   revealStatus?: RevealStatus;
+  /** Token/latency cost of the negotiation that produced this verdict. */
+  usage?: NegotiationUsage;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

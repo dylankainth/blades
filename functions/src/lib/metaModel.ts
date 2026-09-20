@@ -16,6 +16,14 @@ export interface MetaModelMessage {
   content: string;
 }
 
+export type MetaModelEffort = "low" | "medium" | "high";
+
+/** Token counts for ONE Messages API call (see readUsage). */
+export interface MetaModelUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export interface CallMetaModelOptions {
   apiKey: string;
   system: string;
@@ -26,7 +34,31 @@ export interface CallMetaModelOptions {
    * turn (2026-09-19): default ~9.0 s / 563 thinking tokens, "low" ~6.3 s /
    * 289. The API rejects "minimal" and rejects disabling thinking outright.
    */
-  effort?: "low" | "medium" | "high";
+  effort?: MetaModelEffort;
+  /**
+   * Called once per API response with that call's token usage. Lets a
+   * caller total up what a multi-call flow cost (see negotiateTwins.ts)
+   * without changing what callMetaModel returns. Fires before the
+   * empty-text check below, so a call that burned its whole budget on
+   * thinking and then throws is still counted: those tokens were billed.
+   */
+  onUsage?: (usage: MetaModelUsage) => void;
+}
+
+/**
+ * Pulls input/output token counts out of a response's `usage` block. The
+ * Meta endpoint speaks the Anthropic shape but isn't guaranteed to fill in
+ * every field (or to send `usage` at all), so anything missing or
+ * non-numeric counts as 0: usage reporting must never fail a model call.
+ */
+export function readUsage(raw: unknown): MetaModelUsage {
+  const usage = (raw ?? {}) as Record<string, unknown>;
+  const count = (value: unknown): number =>
+    typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return {
+    inputTokens: count(usage.input_tokens),
+    outputTokens: count(usage.output_tokens),
+  };
 }
 
 /**
@@ -43,7 +75,14 @@ export async function callMetaModel(
   // "max_tokens"). Default high enough to leave real headroom after
   // thinking, until Meta's docs confirm a way to cap/disable reasoning
   // effort explicitly.
-  const { apiKey, system, messages, maxTokens = 4096, effort = "low" } = options;
+  const {
+    apiKey,
+    system,
+    messages,
+    maxTokens = 4096,
+    effort = "low",
+    onUsage,
+  } = options;
 
   const client = new Anthropic({
     baseURL: META_MODEL_BASE_URL,
@@ -58,6 +97,8 @@ export async function callMetaModel(
     // Not in this SDK version's types yet; the Meta endpoint accepts it.
     ...({ output_config: { effort } } as Record<string, unknown>),
   });
+
+  onUsage?.(readUsage(response.usage));
 
   const textBlock = response.content.find(
     (block): block is Anthropic.TextBlock => block.type === "text",

@@ -20,14 +20,40 @@
  * "say hi" tap, not here.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as logger from "firebase-functions/logger";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { db } from "./lib/admin";
 import { META_MODEL_API_KEY } from "./lib/secrets";
-import { callMetaModel, type MetaModelMessage } from "./lib/metaModel";
-import type { JudgeFeedDoc, MatchDoc, NegotiationTurn, TwinProfile } from "./types";
+import { AS_ONE_OF_YOU, AS_THIS_PERSON, redactNames } from "./lib/redactNames";
+import {
+  callMetaModel,
+  MUSE_SPARK_MODEL,
+  type MetaModelEffort,
+  type MetaModelMessage,
+  type MetaModelUsage,
+} from "./lib/metaModel";
+import {
+  addCallUsage,
+  EMPTY_USAGE_TOTALS,
+  toNegotiationUsage,
+} from "./lib/negotiationUsage";
+import type {
+  JudgeFeedDoc,
+  MatchDoc,
+  NegotiationTurn,
+  NegotiationUsage,
+  NegotiationUsageDoc,
+  TwinProfile,
+} from "./types";
 import { DEFAULT_BOUNDARIES } from "./types";
 
 const NEGOTIATION_ROUNDS = 2; // each twin speaks this many times
+/**
+ * Reasoning effort for every call in a negotiation. Same value callMetaModel
+ * defaults to; spelled out here so the usage record states what was
+ * actually sent rather than assuming the wrapper's default.
+ */
+const NEGOTIATION_EFFORT: MetaModelEffort = "low";
 
 /**
  * The onboarding "Set your boundaries" step, translated into an explicit
@@ -93,7 +119,9 @@ use the full range, most pairs should NOT score above 70) and "reason" (ONE
 short plain-language sentence: if the score is high, the single best
 concrete reason they should meet; if it's low, the honest reason they
 probably shouldn't bother — no percentages or scores inside this sentence,
-those go in the "score" field only).`;
+those go in the "score" field only). Both people read this sentence before
+either has agreed to be introduced, so never use anyone's name in it:
+address it to the pair, as "you both" or "one of you".`;
 
 interface Convergence {
   score: number;
@@ -113,6 +141,7 @@ export async function runNegotiation(
   twinIdB: string,
   opts: { locationId?: string; apiKey: string; force?: boolean },
 ): Promise<RunNegotiationResult> {
+  const startedAtMs = Date.now();
   const [twinASnap, twinBSnap] = await Promise.all([
     db.collection("twins").doc(twinIdA).get(),
     db.collection("twins").doc(twinIdB).get(),
@@ -188,6 +217,20 @@ export async function runNegotiation(
     };
   }
 
+  // Token totals across every model call below. Declared outside the try
+  // so the catch can still report what a failed run spent.
+  let usageTotals = EMPTY_USAGE_TOTALS;
+  const onUsage = (callUsage: MetaModelUsage): void => {
+    usageTotals = addCallUsage(usageTotals, callUsage);
+  };
+  const currentUsage = (): NegotiationUsage =>
+    toNegotiationUsage(usageTotals, {
+      durationMs: Date.now() - startedAtMs,
+      model: MUSE_SPARK_MODEL,
+      effort: NEGOTIATION_EFFORT,
+    });
+  const sortedTwinIds = [twinIdA, twinIdB].sort() as [string, string];
+
   try {
     const transcript: NegotiationTurn[] = [];
     // Conversation history from twin A's point of view and twin B's point of
@@ -203,6 +246,8 @@ export async function runNegotiation(
     ): Promise<string> => {
       const reply = await callMetaModel({
         apiKey: opts.apiKey,
+        effort: NEGOTIATION_EFFORT,
+        onUsage,
         system: personaSystemPrompt(speakerProfile, otherProfile),
         messages:
           history.length > 0
@@ -236,11 +281,16 @@ export async function runNegotiation(
     // Ask twin A's persona to converge on a final score + reason.
     const convergenceRaw = await callMetaModel({
       apiKey: opts.apiKey,
+      effort: NEGOTIATION_EFFORT,
+      onUsage,
       system: personaSystemPrompt(twinA, twinB),
       messages: [...historyForA, { role: "user", content: CONVERGENCE_PROMPT }],
     });
     const convergence = parseConvergence(convergenceRaw);
     const isMatch = convergence.score >= MATCH_SCORE_THRESHOLD;
+    const usage = currentUsage();
+
+    const pairNames = [twinA.name, twinB.name];
 
     const matchDoc: Partial<MatchDoc> = {
       matchId,
@@ -249,7 +299,9 @@ export async function runNegotiation(
       transcript,
       // Kept regardless of outcome — the "why not" is exactly what a
       // dismissed match's detail view shows (see HomeScreen's feed).
-      reason: convergence.reason || null,
+      // Shown on the teaser, the push and the Home feed before anyone has
+      // approved, so it must not give away who the other person is.
+      reason: redactNames(convergence.reason, pairNames, AS_ONE_OF_YOU) || null,
       score: convergence.score,
       // "confirmed" here only means "worth surfacing to the humans" — see
       // file header. notifyMatch reacts to this and sends a push notification
@@ -262,8 +314,12 @@ export async function runNegotiation(
       ...(isMatch
         ? {
             summaries: {
-              [twinIdA]: twinA.summary ?? null,
-              [twinIdB]: twinB.summary ?? null,
+              [twinIdA]: twinA.summary
+                ? redactNames(twinA.summary, [twinA.name], AS_THIS_PERSON)
+                : null,
+              [twinIdB]: twinB.summary
+                ? redactNames(twinB.summary, [twinB.name], AS_THIS_PERSON)
+                : null,
             },
             interestsByTwin: {
               [twinIdA]: twinA.interests ?? [],
@@ -273,6 +329,9 @@ export async function runNegotiation(
             revealStatus: "pending",
           }
         : {}),
+      // Written for a dismissed pair too: what a rejection cost is the
+      // number the cost-saving work is measured against.
+      usage,
       updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
     };
 
@@ -302,6 +361,17 @@ export async function runNegotiation(
         };
     await judgeFeedRef.set(judgeFeedDoc, { merge: true });
 
+    // After both writes, so a run that fails on either one is reported once
+    // (as "failed", from the catch below) rather than twice.
+    logger.info("negotiation_usage", {
+      matchId,
+      twinIds: sortedTwinIds,
+      locationId: opts.locationId ?? null,
+      outcome: matchDoc.status,
+      score: convergence.score,
+      ...usage,
+    });
+
     return {
       matchId,
       reason: matchDoc.reason ?? null,
@@ -310,6 +380,13 @@ export async function runNegotiation(
       transcript,
     };
   } catch (err) {
+    await recordFailedUsage({
+      matchId,
+      twinIds: sortedTwinIds,
+      locationId: opts.locationId ?? null,
+      outcome: "failed",
+      usage: currentUsage(),
+    });
     // Release the claim so the next detection can retry, instead of leaving
     // the pair stuck on "negotiating" until the TTL expires.
     await Promise.all([matchRef.delete(), judgeFeedRef.delete()]).catch(
@@ -318,6 +395,33 @@ export async function runNegotiation(
       },
     );
     throw err;
+  }
+}
+
+/**
+ * A failed run deletes its matches/{matchId} claim, so there is no match doc
+ * left to carry `usage`. Any tokens it spent go to negotiation_usage/
+ * instead, keeping the total measured cost honest. Always logs; only writes
+ * a doc when a model call actually came back (an outage that fails every
+ * first call would otherwise add one zero-token doc per detection). Never
+ * throws: the caller is already handling the error that matters.
+ */
+async function recordFailedUsage(
+  record: Omit<NegotiationUsageDoc, "createdAt">,
+): Promise<void> {
+  const { usage, ...rest } = record;
+  logger.info("negotiation_usage", { ...rest, score: null, ...usage });
+  if (usage.modelCalls === 0) return;
+  try {
+    await db.collection("negotiation_usage").add({
+      ...record,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (writeErr) {
+    logger.error("Failed to write negotiation_usage doc", {
+      matchId: record.matchId,
+      error: writeErr instanceof Error ? writeErr.message : String(writeErr),
+    });
   }
 }
 
