@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -16,6 +17,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -93,14 +95,17 @@ fun PairBadgeButton(modifier: Modifier = Modifier) {
 }
 
 /**
- * Overflow menu for the Home top bar: pair (or re-pair) a badge, and reset
- * the demo between judges. Self-contained so Home only has to place it.
+ * Overflow menu for the Home top bar: pair (or re-pair) a badge, reset the
+ * demo between judges, and log out. Self-contained so Home only has to
+ * place it and pass [onLogout] (sign-out + navigation is Activity-level,
+ * not something this menu can do on its own).
  */
 @Composable
-fun BadgeMenu() {
+fun BadgeMenu(onLogout: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
+    var confirmingLogout by remember { mutableStateOf(false) }
 
     IconButton(onClick = { expanded = true }) {
         Icon(Icons.Filled.MoreVert, contentDescription = "Badge and demo options")
@@ -123,6 +128,34 @@ fun BadgeMenu() {
                     val removed = BadgeRepository.resetDemo()
                     BleProximityService.forgetSeenTokens()
                     "Cleared $removed negotiation${if (removed == 1) "" else "s"}. Ready for the next judge."
+                }
+            },
+        )
+        DropdownMenuItem(
+            text = { Text("Log out") },
+            onClick = {
+                expanded = false
+                confirmingLogout = true
+            },
+        )
+    }
+
+    if (confirmingLogout) {
+        AlertDialog(
+            onDismissRequest = { confirmingLogout = false },
+            title = { Text("Log out?") },
+            text = { Text("Your twin keeps working for you here — you'll need to sign in again to come back.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingLogout = false
+                    onLogout()
+                }) {
+                    Text("Log out")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingLogout = false }) {
+                    Text("Cancel")
                 }
             },
         )
