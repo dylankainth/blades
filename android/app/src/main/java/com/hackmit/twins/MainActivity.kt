@@ -273,6 +273,7 @@ private fun AppNavHost(
                 onSwitchToSignUp = {
                     navController.navigate(Routes.SIGN_UP) { popUpTo(Routes.WELCOME) }
                 },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.SIGN_UP) {
@@ -285,6 +286,7 @@ private fun AppNavHost(
                 onSwitchToSignIn = {
                     navController.navigate(Routes.SIGN_IN) { popUpTo(Routes.WELCOME) }
                 },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.ONBOARDING) {

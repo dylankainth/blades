@@ -14,14 +14,17 @@ fun SignInScreen(
     onSignedIn: suspend (email: String, password: String) -> Unit,
     onGoogleClick: () -> Unit,
     onSwitchToSignUp: () -> Unit,
+    onBack: () -> Unit,
 ) {
     AuthFormScreen(
-        title = "Sign in",
+        headline = "Welcome back",
+        subtitle = "Your twin has been keeping an eye out for you.",
         submitLabel = "Sign in",
         onSubmitEmail = onSignedIn,
         onGoogleClick = onGoogleClick,
         switchPrompt = "New here?",
         switchActionLabel = "Create an account",
         onSwitch = onSwitchToSignUp,
+        onBack = onBack,
     )
 }

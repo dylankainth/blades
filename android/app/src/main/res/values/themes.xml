@@ -2,6 +2,15 @@
 <resources>
     <!-- Minimal launch theme; actual UI theming is done in Compose
          (see ui/theme/Theme.kt). This just avoids a flash-of-unstyled-window
-         and satisfies the manifest's android:theme reference. -->
-    <style name="Theme.DigitalTwins" parent="android:Theme.Material.Light.NoActionBar" />
+         and satisfies the manifest's android:theme reference.
+         The system bars take the page colour with dark icons so they read as
+         part of the page instead of a grey band above it. Screens with a dark
+         top (WelcomeScreen) override this via StatusBarStyle. -->
+    <style name="Theme.DigitalTwins" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/klick_page_background</item>
+        <item name="android:statusBarColor">@color/klick_page_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/klick_page_background</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
 </resources>
