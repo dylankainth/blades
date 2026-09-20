@@ -28,7 +28,7 @@ import com.hackmit.twins.auth.AuthManager
 import com.hackmit.twins.checkin.CheckinRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,7 +52,13 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class BleProximityService : Service() {
 
-    private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
+    // SupervisorJob, not Job: a single failed child (e.g. one Firestore
+    // token-resolution call hitting a transient error) must not cancel the
+    // whole scope — that would silently kill advertising/scanning for the
+    // rest of the service's life with no crash or log, since this is a
+    // long-running foreground service and BLE scan results keep arriving
+    // as ordinary system callbacks regardless of our coroutine state.
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var advertiser: BluetoothLeAdvertiser? = null
@@ -243,8 +249,18 @@ class BleProximityService : Service() {
             // First time seeing this token: resolve it once via Firestore
             // (see BleSessionRepository for why this indirection exists —
             // a raw Firebase uid doesn't fit a BLE advertisement packet).
+            // Caught explicitly (not left to propagate) so one transient
+            // Firestore error — offline blip, not-yet-registered token —
+            // only drops this single scan result instead of tearing down
+            // the coroutine tree, and so it shows up in logcat instead of
+            // vanishing silently.
             serviceScope.launch {
-                val otherTwinId = BleSessionRepository.resolveToken(token) ?: return@launch
+                val otherTwinId = try {
+                    BleSessionRepository.resolveToken(token)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to resolve BLE token $token", e)
+                    null
+                } ?: return@launch
                 if (otherTwinId == myId) return@launch
                 resolvedTokens[token] = otherTwinId
                 _nearbyRssi.update { it + (otherTwinId to result.rssi) }
