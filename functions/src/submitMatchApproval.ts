@@ -19,6 +19,7 @@
  * live listener on the match doc, no extra push needed for that case.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { FieldValue } from "firebase-admin/firestore";
 import { db, messaging } from "./lib/admin";
 import type { MatchDoc, TwinProfile } from "./types";
 
@@ -29,6 +30,12 @@ interface SubmitMatchApprovalRequest {
 
 interface SubmitMatchApprovalResponse {
   revealStatus: "pending" | "revealed" | "cancelled";
+}
+
+interface ApprovalOutcome extends SubmitMatchApprovalResponse {
+  otherId: string;
+  /** True only for the call that flipped the match to "revealed", so the push is sent once. */
+  justRevealed: boolean;
 }
 
 export const submitMatchApproval = onCall<SubmitMatchApprovalRequest>(
@@ -51,54 +58,71 @@ export const submitMatchApproval = onCall<SubmitMatchApprovalRequest>(
     }
 
     const matchRef = db.collection("matches").doc(matchId);
-    const matchSnap = await matchRef.get();
-    if (!matchSnap.exists) {
-      throw new HttpsError("not-found", "Match not found.");
-    }
-    const match = matchSnap.data() as MatchDoc;
 
-    if (!match.twinIds.includes(callerId)) {
-      throw new HttpsError(
-        "permission-denied",
-        "Only the two people in this match can respond to it.",
-      );
-    }
-    if (match.status !== "confirmed") {
-      throw new HttpsError(
-        "failed-precondition",
-        "This match was never confirmed — nothing to approve.",
-      );
-    }
-    if (match.revealStatus === "cancelled") {
-      return { revealStatus: "cancelled" };
-    }
-    if (match.revealStatus === "revealed") {
-      return { revealStatus: "revealed" }; // already done, idempotent
-    }
+    // Read and write in one transaction. Both people often tap "I'm in" within
+    // the same second; with a plain read-then-write each call saw the other
+    // approval as missing, both wrote "pending", and the match never revealed.
+    const { revealStatus, otherId, justRevealed } = await db.runTransaction(
+      async (tx): Promise<ApprovalOutcome> => {
+        const matchSnap = await tx.get(matchRef);
+        if (!matchSnap.exists) {
+          throw new HttpsError("not-found", "Match not found.");
+        }
+        const match = matchSnap.data() as MatchDoc;
 
-    if (!approve) {
-      await matchRef.set(
-        { revealStatus: "cancelled" },
-        { merge: true },
-      );
-      return { revealStatus: "cancelled" };
-    }
+        if (!match.twinIds.includes(callerId)) {
+          throw new HttpsError(
+            "permission-denied",
+            "Only the two people in this match can respond to it.",
+          );
+        }
+        if (match.status !== "confirmed") {
+          throw new HttpsError(
+            "failed-precondition",
+            "This match was never confirmed — nothing to approve.",
+          );
+        }
+        const otherId = match.twinIds.find((id) => id !== callerId) ?? "";
+        if (
+          match.revealStatus === "cancelled" ||
+          match.revealStatus === "revealed"
+        ) {
+          // Already settled, idempotent.
+          return { revealStatus: match.revealStatus, otherId, justRevealed: false };
+        }
 
-    const otherId = match.twinIds.find((id) => id !== callerId) ?? "";
-    const updatedApprovals = {
-      ...(match.humanApprovals ?? {}),
-      [callerId]: "approved" as const,
-    };
-    const otherApproved = updatedApprovals[otherId] === "approved";
-    const revealStatus = otherApproved ? "revealed" : "pending";
+        if (!approve) {
+          tx.set(matchRef, { revealStatus: "cancelled" }, { merge: true });
+          return { revealStatus: "cancelled", otherId, justRevealed: false };
+        }
 
-    await matchRef.set(
-      { humanApprovals: updatedApprovals, revealStatus },
-      { merge: true },
+        const updatedApprovals = {
+          ...(match.humanApprovals ?? {}),
+          [callerId]: "approved" as const,
+        };
+        const revealed = updatedApprovals[otherId] === "approved";
+        tx.set(
+          matchRef,
+          {
+            humanApprovals: updatedApprovals,
+            revealStatus: revealed ? "revealed" : "pending",
+            // The badges show a match for MATCH_SHOW_MS counted from updatedAt
+            // (see lib/box.ts). Without this the window starts at the verdict,
+            // so a slow approval leaves them lit for seconds instead of minutes.
+            ...(revealed ? { updatedAt: FieldValue.serverTimestamp() } : {}),
+          },
+          { merge: true },
+        );
+        return {
+          revealStatus: revealed ? "revealed" : "pending",
+          otherId,
+          justRevealed: revealed,
+        };
+      },
     );
 
-    if (revealStatus === "revealed") {
-      await notifyBothRevealed(match.matchId, callerId, otherId);
+    if (justRevealed) {
+      await notifyBothRevealed(matchId, callerId, otherId);
     }
 
     return { revealStatus };
