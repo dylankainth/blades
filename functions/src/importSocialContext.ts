@@ -24,6 +24,13 @@
  *    folding whatever's publicly indexed (bio mentions, post excerpts,
  *    press/blog mentions) into the same extraction pipeline. This works
  *    for any handle — no OAuth, no App Review, no tester role required.
+ *
+ *  - linkedin: NOT an API either — LinkedIn's is invite-only partner access,
+ *    not a weekend build. The client uploads a PDF of the twin's own
+ *    LinkedIn profile (LinkedIn's native "Save to PDF" export) as base64;
+ *    this extracts its text with pdf-parse (see lib/linkedinPdf.ts) and
+ *    folds it into the same pipeline. No OAuth, no App Review, works for
+ *    anyone with a LinkedIn account.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
@@ -32,9 +39,10 @@ import { META_MODEL_API_KEY, PARALLEL_API_KEY } from "./lib/secrets";
 import { extractProfile } from "./lib/extractProfile";
 import { GraphApiError, fetchFacebookPostText } from "./lib/graphApi";
 import { ParallelApiError, searchWeb } from "./lib/parallel";
+import { LinkedinPdfError, extractLinkedinPdfText } from "./lib/linkedinPdf";
 import type { TwinProfile } from "./types";
 
-type SocialProvider = "facebook" | "instagram";
+type SocialProvider = "facebook" | "instagram" | "linkedin";
 
 interface ImportSocialContextRequest {
   twinId: string;
@@ -43,6 +51,8 @@ interface ImportSocialContextRequest {
   accessToken?: string;
   /** Required when provider is "instagram" — the twin's own handle (leading "@" optional). */
   instagramHandle?: string;
+  /** Required when provider is "linkedin" — base64 of the exported profile PDF. */
+  pdfBase64?: string;
 }
 
 interface ImportSocialContextResponse {
@@ -65,8 +75,8 @@ type SocialSections = Partial<Record<SocialProvider, string>>;
 function parseSocialSections(existing: string | null | undefined): SocialSections {
   if (!existing) return {};
   const sections: SocialSections = {};
-  for (const part of existing.split(/\n\n(?=\[\[(?:facebook|instagram)\]\])/)) {
-    const match = part.match(/^\[\[(facebook|instagram)\]\]\n([\s\S]*)$/);
+  for (const part of existing.split(/\n\n(?=\[\[(?:facebook|instagram|linkedin)\]\])/)) {
+    const match = part.match(/^\[\[(facebook|instagram|linkedin)\]\]\n([\s\S]*)$/);
     if (match) {
       sections[match[1] as SocialProvider] = match[2];
     }
@@ -90,15 +100,15 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
     enforceAppCheck: false,
   },
   async (request): Promise<ImportSocialContextResponse> => {
-    const { twinId, provider, accessToken, instagramHandle } = request.data ?? {};
+    const { twinId, provider, accessToken, instagramHandle, pdfBase64 } = request.data ?? {};
 
     if (!twinId || typeof twinId !== "string") {
       throw new HttpsError("invalid-argument", "twinId is required.");
     }
-    if (provider !== "facebook" && provider !== "instagram") {
+    if (provider !== "facebook" && provider !== "instagram" && provider !== "linkedin") {
       throw new HttpsError(
         "invalid-argument",
-        'provider must be "facebook" or "instagram".',
+        'provider must be "facebook", "instagram", or "linkedin".',
       );
     }
     if (provider === "facebook" && (!accessToken || typeof accessToken !== "string")) {
@@ -114,6 +124,12 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
         "instagramHandle is required for the instagram provider.",
       );
     }
+    if (provider === "linkedin" && (!pdfBase64 || typeof pdfBase64 !== "string")) {
+      throw new HttpsError(
+        "invalid-argument",
+        "pdfBase64 is required for the linkedin provider.",
+      );
+    }
     if (request.auth && request.auth.uid !== twinId) {
       throw new HttpsError(
         "permission-denied",
@@ -125,7 +141,7 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
     try {
       if (provider === "facebook") {
         contentChunks = await fetchFacebookPostText(accessToken as string);
-      } else {
+      } else if (provider === "instagram") {
         contentChunks = await searchWeb(
           PARALLEL_API_KEY.value(),
           `Find publicly available information about the Instagram account ` +
@@ -134,15 +150,19 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
             `sense of who they are.`,
           [`instagram.com/${cleanedHandle}`, `"${cleanedHandle}" instagram`],
         );
+      } else {
+        const text = await extractLinkedinPdfText(pdfBase64 as string);
+        contentChunks = [text];
       }
     } catch (err) {
       // Expected for the vast majority of real Facebook users — see file
       // header. No tester/role on the Meta App means Graph API rejects the
       // token with a permission error. That's a normal, reportable outcome
       // here, not a crash. A Parallel search failure (rate limit, no
-      // credit, transient error) is handled the same way for symmetry —
-      // either way the text dump still covers the twin's context.
-      if (err instanceof GraphApiError || err instanceof ParallelApiError) {
+      // credit, transient error) and an unreadable/oversized LinkedIn PDF
+      // are handled the same way for symmetry — either way the text dump
+      // still covers the twin's context.
+      if (err instanceof GraphApiError || err instanceof ParallelApiError || err instanceof LinkedinPdfError) {
         console.warn(
           `Social import unavailable for twin ${twinId} (${provider}): ${err.message}`,
         );
@@ -154,15 +174,17 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
               ? "This account isn't enabled for Facebook post import yet (it needs a " +
                 "tester role on the Meta app) — no worries, your text dump is still " +
                 "used for your twin's context."
-              : "Couldn't search the web for that Instagram handle right now — no " +
-                "worries, your text dump is still used for your twin's context.",
+              : provider === "instagram"
+                ? "Couldn't search the web for that Instagram handle right now — no " +
+                  "worries, your text dump is still used for your twin's context."
+                : `${err.message} No worries, your text dump is still used for your twin's context.`,
         };
       }
       throw new HttpsError(
         "internal",
-        `${provider === "facebook" ? "Graph API" : "Parallel search"} request failed: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
+        `${
+          provider === "facebook" ? "Graph API" : provider === "instagram" ? "Parallel search" : "LinkedIn PDF"
+        } request failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
@@ -173,7 +195,9 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
         message:
           provider === "facebook"
             ? "Connected, but no recent post text was found to import."
-            : "Connected, but no public web results were found for that handle.",
+            : provider === "instagram"
+              ? "Connected, but no public web results were found for that handle."
+              : "The PDF was read, but no usable text was found in it.",
       };
     }
 
@@ -233,9 +257,11 @@ export const importSocialContext = onCall<ImportSocialContextRequest>(
           ? `Pulled ${contentChunks.length} recent Facebook post${
               contentChunks.length === 1 ? "" : "s"
             } into your twin's context.`
-          : `Found ${contentChunks.length} public web result${
-              contentChunks.length === 1 ? "" : "s"
-            } about your Instagram and added them to your twin's context.`,
+          : provider === "instagram"
+            ? `Found ${contentChunks.length} public web result${
+                contentChunks.length === 1 ? "" : "s"
+              } about your Instagram and added them to your twin's context.`
+            : "Read your LinkedIn PDF and added it to your twin's context.",
       summary: extracted.summary,
       interests: extracted.interests,
     };

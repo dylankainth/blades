@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
+import android.net.Uri
+import android.util.Base64
 import android.widget.Toast
 import android.util.Log
 import android.content.pm.PackageManager
@@ -225,6 +227,32 @@ fun OnboardingScreen(
         }
     }
 
+    // LinkedIn: no API worth building against for a weekend (it's invite-
+    // only partner access) — instead the client reads whatever PDF the
+    // user picks (meant to be LinkedIn's own "Save to PDF" profile export),
+    // base64-encodes it, and folds it into the same importSocialContext
+    // pipeline as Facebook/Instagram (see importSocialContext.ts's
+    // "linkedin" provider + lib/linkedinPdf.ts for the server-side text
+    // extraction). Reuses isImportingSocial/socialStatusMessage below.
+    val linkedinPdfPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            isImportingSocial = true
+            socialStatusMessage = null
+            try {
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw IllegalStateException("Couldn't open that file.")
+                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                importSocialContext("linkedin", mapOf("pdfBase64" to base64))
+            } catch (e: Exception) {
+                isImportingSocial = false
+                socialStatusMessage = "Couldn't read that PDF. (${e.message})"
+            }
+        }
+    }
+
     Scaffold(
         containerColor = KlickColors.PageBackground,
         topBar = {
@@ -359,6 +387,53 @@ fun OnboardingScreen(
                     unfocusedContainerColor = KlickColors.CardSurface,
                 ),
             )
+
+            // Optional — no OAuth: reads whatever PDF the user picks
+            // (meant to be LinkedIn's own "Save to PDF" profile export) and
+            // folds its text into the twin's context alongside the dump
+            // above. See importSocialContext.ts's "linkedin" provider.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = KlickColors.CardSurface),
+                border = BorderStroke(1.dp, KlickColors.Border),
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = "LinkedIn (optional)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = KlickColors.TextPrimary,
+                    )
+                    Text(
+                        text = "On your LinkedIn profile: More → Save to PDF. Upload that here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = KlickColors.TextSecondary,
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { linkedinPdfPicker.launch("application/pdf") },
+                        enabled = !isImportingSocial,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, KlickColors.Border),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = KlickColors.TextPrimary),
+                    ) {
+                        Text("Upload LinkedIn PDF", style = MaterialTheme.typography.labelLarge)
+                    }
+                    if (isImportingSocial) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        CircularProgressIndicator(modifier = Modifier.height(20.dp))
+                    }
+                    if (socialStatusMessage != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = socialStatusMessage ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = KlickColors.TextSecondary,
+                        )
+                    }
+                }
+            }
 
             if (submitError != null) {
                 Text(
