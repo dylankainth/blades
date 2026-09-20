@@ -3,244 +3,386 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Judge Dashboard — Twin Negotiations</title>
+    <title>Klick — Judge View</title>
+
+    <!-- Space Grotesk: the same family the Android app loads from
+         res/font/space_grotesk.ttf, so the dashboard and the phone read as
+         one product. Fallback stack keeps the layout intact if the venue
+         network blocks Google Fonts. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* ============================================================
+           Design tokens — lifted verbatim from the Android app's
+           ui/theme/Color.kt so the two surfaces cannot drift apart.
+           Warm off-white page, near-black text, ONE warm amber accent
+           reserved for standout moments (a confirmed match, the reason).
+           ============================================================ */
+        :root {
+            --page:        #EEECE9;
+            --card:        #FCFBFA;
+            --inset:       #F3F1EE;
+            --text:        #1C1B1A;
+            --text-2:      #8E8A85;
+            --text-3:      #A3A09B;
+            --border:      #DEDAD5;
+            --accent:      #C97B45;
+            --accent-soft: #F0E2D6;
+
+            --rail: 340px;
+            --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { height: 100%; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            background: #0f0f0f;
-            color: #e5e5e5;
-            height: 100vh;
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont,
+                         'Segoe UI', Roboto, sans-serif;
+            background: var(--page);
+            color: var(--text);
             display: flex;
             flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            font-feature-settings: 'tnum' 0;
         }
+
+        /* ---------- Header ---------- */
 
         header {
-            background: #1a1a1a;
-            border-bottom: 1px solid #333;
-            padding: 16px 20px;
             flex-shrink: 0;
+            border-bottom: 1px solid var(--border);
+            /* A very quiet dot field, the pattern.css idea done as a plain
+               gradient so the page carries no extra stylesheet dependency. */
+            background:
+                radial-gradient(circle at 1px 1px, rgba(28,27,26,0.045) 1px, transparent 0)
+                0 0 / 22px 22px,
+                var(--page);
         }
 
-        header h1 {
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        .container {
+        .header-bar {
             display: flex;
-            flex: 1;
-            min-height: 0;
+            align-items: baseline;
+            gap: 14px;
+            padding: 22px 32px 0;
         }
 
-        .matches-panel {
-            width: 280px;
-            background: #141414;
-            border-right: 1px solid #333;
-            overflow-y: auto;
-            flex-shrink: 0;
+        .wordmark {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
         }
 
-        .match-item {
-            padding: 14px 16px;
-            border-bottom: 1px solid #222;
-            cursor: pointer;
-            transition: background 150ms;
+        .header-sub {
+            font-size: 13px;
+            color: var(--text-2);
+            letter-spacing: 0.01em;
+        }
+
+        .live {
+            margin-left: auto;
             display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .match-item:hover {
-            background: #1f1f1f;
-        }
-
-        .match-item.active {
-            background: #2a3a4a;
-            border-left: 3px solid #4a9eff;
-            padding-left: 13px;
-        }
-
-        .match-item-header {
-            font-size: 14px;
+            align-items: center;
+            gap: 7px;
+            font-size: 11px;
             font-weight: 500;
-            color: #fff;
-        }
-
-        .match-item-status {
-            font-size: 12px;
-            color: #888;
-        }
-
-        .match-item-status.active {
-            color: #4a9eff;
-        }
-
-        .empty-state {
-            padding: 32px 16px;
-            text-align: center;
-            color: #666;
-            font-size: 13px;
-        }
-
-        .transcript-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #0f0f0f;
-            overflow: hidden;
-        }
-
-        .transcript-placeholder {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex: 1;
-            color: #555;
-            font-size: 14px;
-        }
-
-        .transcript-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .transcript-message {
-            display: flex;
-            gap: 12px;
-            animation: slideIn 300ms ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(8px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .transcript-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #2a3a4a;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 600;
-            color: #4a9eff;
-            flex-shrink: 0;
-        }
-
-        .transcript-bubble {
-            flex: 1;
-        }
-
-        .transcript-speaker {
-            font-size: 12px;
-            font-weight: 600;
-            color: #aaa;
-            margin-bottom: 4px;
-        }
-
-        .transcript-text {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-            padding: 10px 12px;
-            font-size: 13px;
-            line-height: 1.5;
-            color: #e5e5e5;
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-            word-break: break-word;
-        }
-
-        .transcript-reason {
-            margin-top: 20px;
-            padding: 16px;
-            background: linear-gradient(135deg, #1a2a1a 0%, #1a1a2a 100%);
-            border-left: 3px solid #4ade80;
-            border-radius: 4px;
-        }
-
-        .transcript-reason-label {
-            font-size: 11px;
-            font-weight: 600;
-            color: #888;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
+            letter-spacing: 0.1em;
+            color: var(--text-2);
         }
 
-        .transcript-reason-text {
-            font-size: 14px;
-            line-height: 1.6;
-            color: #fff;
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-        }
-
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #0f0f0f;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #444;
-        }
-
-        .loading-spinner {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border: 2px solid #444;
-            border-top-color: #4a9eff;
+        .live-dot {
+            width: 6px; height: 6px;
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            vertical-align: middle;
-            margin-right: 6px;
+            background: var(--accent);
+            box-shadow: 0 0 0 0 rgba(201,123,69,0.5);
+            animation: pulse 2.4s var(--ease) infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes pulse {
+            0%   { box-shadow: 0 0 0 0 rgba(201,123,69,0.45); }
+            70%  { box-shadow: 0 0 0 7px rgba(201,123,69,0); }
+            100% { box-shadow: 0 0 0 0 rgba(201,123,69,0); }
+        }
+
+        /* ---------- Cost strip ----------
+           The Token Company / Ramp number. Everything here is derived from
+           usage actually recorded on each negotiation (lib/negotiationUsage.ts),
+           never estimated. */
+
+        .stats {
+            display: flex;
+            gap: 0;
+            padding: 18px 32px 22px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            padding-right: 36px;
+            margin-right: 36px;
+            border-right: 1px solid var(--border);
+        }
+        .stat:last-child { border-right: 0; margin-right: 0; padding-right: 0; }
+
+        .stat-value {
+            font-size: 26px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.1;
+        }
+
+        .stat-value.accent { color: var(--accent); }
+
+        .stat-label {
+            margin-top: 5px;
+            font-size: 10.5px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.11em;
+            color: var(--text-3);
+        }
+
+        /* ---------- Layout ---------- */
+
+        .container { display: flex; flex: 1; min-height: 0; }
+
+        .rail {
+            width: var(--rail);
+            flex-shrink: 0;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+        }
+
+        .rail-head {
+            padding: 20px 24px 12px;
+            font-size: 10.5px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.11em;
+            color: var(--text-3);
+        }
+
+        .item {
+            padding: 15px 24px;
+            border-left: 3px solid transparent;
+            cursor: pointer;
+            transition: background 160ms var(--ease), border-color 160ms var(--ease);
+        }
+
+        .item:hover { background: rgba(255,255,255,0.55); }
+
+        .item.active {
+            background: var(--card);
+            border-left-color: var(--accent);
+        }
+
+        .item-title {
+            font-size: 14.5px;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+            line-height: 1.35;
+        }
+
+        .item-title .sep { color: var(--text-3); margin: 0 5px; font-weight: 400; }
+
+        .item.dismissed .item-title { color: var(--text-2); font-weight: 400; }
+
+        .item-meta {
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-2);
+        }
+
+        .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+        .dot.on  { background: var(--accent); }
+        .dot.off { background: var(--text-3); }
+
+        /* ---------- Transcript ---------- */
+
+        .stage { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+        .stage-inner {
+            max-width: 760px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 40px 40px 64px;
+        }
+
+        .turn {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 22px;
+            animation: rise 420ms var(--ease) both;
+        }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: none; }
+        }
+
+        .avatar {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11.5px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            background: var(--inset);
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+
+        .avatar.a { background: var(--accent-soft); color: var(--accent); border-color: #E4D0BE; }
+
+        .speaker {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-2);
+            margin-bottom: 6px;
+            letter-spacing: 0.01em;
+        }
+
+        .bubble {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 16px;
+            font-size: 14.5px;
+            line-height: 1.6;
+            letter-spacing: -0.005em;
+        }
+
+        /* The visual climax of the page: the one plain-language sentence the
+           two twins converged on. No score, by design — CLAUDE.md: "the
+           reasoning is the product", not a percentage. */
+        .verdict {
+            margin-top: 34px;
+            padding: 22px 26px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 12px;
+            animation: rise 520ms var(--ease) both;
+        }
+
+        .verdict-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.13em;
+            color: var(--accent);
+            margin-bottom: 11px;
+        }
+
+        .verdict-text {
+            font-size: 19px;
+            line-height: 1.5;
+            letter-spacing: -0.015em;
+            font-weight: 400;
+        }
+
+        .verdict-foot {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text-3);
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ---------- Empty / private states ---------- */
+
+        .placeholder {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .private {
+            max-width: 430px;
+            text-align: center;
+        }
+
+        .private-mark {
+            width: 44px; height: 44px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            background: var(--inset);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-3);
+        }
+
+        .private-title {
+            font-size: 17px;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+            margin-bottom: 10px;
+        }
+
+        .private-body {
+            font-size: 13.5px;
+            line-height: 1.65;
+            color: var(--text-2);
+        }
+
+        .rail-empty {
+            padding: 28px 24px;
+            font-size: 13px;
+            color: var(--text-3);
+            line-height: 1.6;
+        }
+
+        /* ---------- Scrollbars ---------- */
+
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: #DAD5CF;
+            border-radius: 10px;
+            border: 3px solid var(--page);
+        }
+        ::-webkit-scrollbar-thumb:hover { background: #C9C3BC; }
+
+        @media (max-width: 900px) {
+            .container { flex-direction: column; }
+            .rail { width: 100%; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--border); }
+            .stage-inner { padding: 28px 22px 48px; }
+            .stat { padding-right: 24px; margin-right: 24px; }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>🤝 Twin Negotiations — Judge Dashboard</h1>
+        <div class="header-bar">
+            <span class="wordmark">Klick</span>
+            <span class="header-sub">Twin negotiations, live</span>
+            <span class="live"><span class="live-dot"></span>Listening</span>
+        </div>
+        <div class="stats" id="stats"></div>
     </header>
 
     <div class="container">
-        <div class="matches-panel">
+        <aside class="rail">
+            <div class="rail-head">Negotiations</div>
             <div id="matchesList"></div>
-        </div>
-        <div class="transcript-panel">
-            <div id="transcriptContent"></div>
-        </div>
+        </aside>
+        <main class="stage">
+            <div id="transcriptContent" style="display:contents"></div>
+        </main>
     </div>
 
     <script type="module">
@@ -285,6 +427,17 @@
         await signInAnonymously(auth);
 
         // ============================================================
+        // Cost model
+        // ============================================================
+        // Attendee count the "naive" comparison is projected against — the
+        // room Klick was designed for (see CLAUDE.md, ~1000 people).
+        const VENUE_ATTENDEES = 1000;
+        // Every unordered pair in that room: what a system that precomputed a
+        // global shortlist would have to negotiate. CLAUDE.md item 2 rejects
+        // exactly this, and gates on proximity instead.
+        const NAIVE_PAIRS = (VENUE_ATTENDEES * (VENUE_ATTENDEES - 1)) / 2;
+
+        // ============================================================
         // State & DOM
         // ============================================================
         let matches = [];
@@ -292,6 +445,7 @@
 
         const matchesList = document.getElementById("matchesList");
         const transcriptContent = document.getElementById("transcriptContent");
+        const statsEl = document.getElementById("stats");
 
         // ============================================================
         // Firestore Listener Setup
@@ -299,14 +453,17 @@
         // judge_feed/{matchId} — a deliberately redacted copy of
         // matches/{matchId} (which is participant-only, see firestore.rules
         // for why). negotiateTwins.ts writes full real data here only for a
-        // CONFIRMED match; a dismissed one gets just { status, score } — no
-        // names, photos, reason, or transcript, since those tend to name
+        // CONFIRMED match; a dismissed one gets just { status, score, usage }
+        // — no names, photos, reason, or transcript, since those tend to name
         // real people in the model's own words. That's a feature, not a
         // gap: it's the same "twins surface, never expose" guardrail
         // applied to people who *didn't* match.
 
         const matchesRef = collection(db, "judge_feed");
-        const q = query(matchesRef, orderBy("createdAt", "desc"), limit(50));
+        // Deliberately well above the number of negotiations a demo will
+        // produce: the running totals below are a sum over what this query
+        // returns, so a tight limit would silently understate them.
+        const q = query(matchesRef, orderBy("createdAt", "desc"), limit(500));
 
         onSnapshot(q, (snapshot) => {
             matches = [];
@@ -322,9 +479,58 @@
                 activeMatchId = matches[0].id;
             }
 
+            renderStats();
             renderMatchesList();
             renderTranscript();
         });
+
+        // ============================================================
+        // Render Cost Strip
+        // ============================================================
+        function renderStats() {
+            const run = matches.length;
+            // Dismissals carry usage too, and they're the majority of runs —
+            // leaving them out would flatter the average.
+            const withUsage = matches.filter((m) => m.usage);
+            const tokens = withUsage.reduce((sum, m) => sum + (m.usage.totalTokens || 0), 0);
+            const calls = withUsage.reduce((sum, m) => sum + (m.usage.modelCalls || 0), 0);
+            const avgTokens = withUsage.length ? tokens / withUsage.length : 0;
+
+            // Projected, not measured: this run's average applied to every
+            // pair in the room. Labelled as a projection on the page.
+            const naiveTokens = avgTokens * NAIVE_PAIRS;
+            const avoided = run > 0 ? (1 - run / NAIVE_PAIRS) * 100 : 0;
+
+            // Until functions ship the usage field onto judge_feed (and a
+            // negotiation runs after that), there is nothing to total — show
+            // an em dash rather than a confident "0 tokens", which would read
+            // as "this is free" instead of "not measured yet".
+            const measured = withUsage.length > 0;
+
+            const cells = [
+                { v: fmt(run), l: "Negotiations run" },
+                { v: fmt(NAIVE_PAIRS), l: `All-pairs, ${fmt(VENUE_ATTENDEES)} people` },
+                { v: run ? `${avoided.toFixed(3)}%` : "—", l: "Avoided by proximity", accent: true },
+                { v: measured ? fmt(tokens) : "—", l: measured ? `Tokens spent · ${fmt(calls)} model calls` : "Tokens spent" },
+                { v: measured ? approx(naiveTokens) : "—", l: "Projected all-pairs tokens" },
+            ];
+
+            statsEl.innerHTML = cells.map((c) => `
+                <div class="stat">
+                    <div class="stat-value${c.accent ? " accent" : ""}">${c.v}</div>
+                    <div class="stat-label">${c.l}</div>
+                </div>
+            `).join("");
+        }
+
+        function fmt(n) { return Math.round(n).toLocaleString("en-US"); }
+
+        function approx(n) {
+            if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+            if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+            return fmt(n);
+        }
 
         // ============================================================
         // Render Matches List
@@ -333,7 +539,7 @@
             matchesList.innerHTML = "";
 
             if (matches.length === 0) {
-                matchesList.innerHTML = `<div class="empty-state">Waiting for twin negotiations...</div>`;
+                matchesList.innerHTML = `<div class="rail-empty">Waiting for two twins to cross paths…</div>`;
                 return;
             }
 
@@ -341,16 +547,20 @@
                 const isActive = match.id === activeMatchId;
                 const isConfirmed = match.status === "confirmed";
                 const names = match.names ? Object.values(match.names) : [];
-                const header = isConfirmed
-                    ? `${escapeHtml(names[0] || "Twin 1")} <span style="color: #666;">↔</span> ${escapeHtml(names[1] || "Twin 2")}`
-                    : `Dismissed negotiation`;
+                const title = isConfirmed
+                    ? `${escapeHtml(names[0] || "Twin 1")}<span class="sep">&#8596;</span>${escapeHtml(names[1] || "Twin 2")}`
+                    : `Private negotiation`;
 
                 const el = document.createElement("div");
-                el.className = `match-item ${isActive ? "active" : ""}`;
+                el.className = `item ${isActive ? "active" : ""} ${isConfirmed ? "" : "dismissed"}`;
+                // No score here, by design. CLAUDE.md: the product surfaces a
+                // reason, never a percentage — the threshold still gates the
+                // outcome in negotiateTwins.ts, it just isn't the headline.
                 el.innerHTML = `
-                    <div class="match-item-header">${header}</div>
-                    <div class="match-item-status ${isConfirmed ? "" : "active"}">
-                        ${isConfirmed ? "✓ Confirmed match" : "Not a match"} · score ${match.score ?? "—"}
+                    <div class="item-title">${title}</div>
+                    <div class="item-meta">
+                        <span class="dot ${isConfirmed ? "on" : "off"}"></span>
+                        ${isConfirmed ? "Worth meeting" : "No real reason to meet"}
                     </div>
                 `;
                 el.addEventListener("click", () => {
@@ -369,82 +579,117 @@
             transcriptContent.innerHTML = "";
 
             if (!activeMatchId) {
-                transcriptContent.innerHTML = `<div class="transcript-placeholder">Select a negotiation to view</div>`;
+                transcriptContent.innerHTML = placeholder(
+                    "Nothing selected",
+                    "Pick a negotiation from the left to watch two twins work it out."
+                );
                 return;
             }
 
             const match = matches.find((m) => m.id === activeMatchId);
             if (!match) {
-                transcriptContent.innerHTML = `<div class="transcript-placeholder">Match not found</div>`;
+                transcriptContent.innerHTML = placeholder(
+                    "Not found",
+                    "That negotiation is no longer in the feed."
+                );
                 return;
             }
 
-            const container = document.createElement("div");
-            container.className = "transcript-container";
-
-            const isConfirmed = match.status === "confirmed";
-
-            if (!isConfirmed) {
+            if (match.status !== "confirmed") {
                 // Dismissed: judge_feed deliberately carries no names,
                 // transcript, or reason for a non-match — see the comment
                 // by the Firestore listener above. Say so explicitly
                 // rather than just showing an empty panel.
-                container.innerHTML = `
-                    <div class="transcript-placeholder" style="flex-direction: column; gap: 8px;">
-                        <div>Not a match — score ${match.score ?? "—"}/100</div>
-                        <div style="font-size: 12px; color: #555;">
-                            Names, reasoning, and transcript for a dismissed pairing
-                            are private to the two people involved — the same
-                            guardrail that keeps twins from exposing anyone's
-                            identity without a confirmed match.
-                        </div>
-                    </div>
-                `;
-                transcriptContent.appendChild(container);
+                transcriptContent.innerHTML = placeholder(
+                    "This one stays private",
+                    "Two twins talked and decided there was no real reason for these people to meet. " +
+                    "Names, reasoning and transcript for a dismissed pairing are never published — " +
+                    "the same guardrail that stops a twin exposing anyone's identity without a confirmed match on both sides."
+                );
                 return;
             }
 
+            const inner = document.createElement("div");
+            inner.className = "stage-inner";
+
             const names = match.names || {};
-
-            // Render transcript messages
             const transcript = match.transcript || [];
-            transcript.forEach((turn) => {
-                const msg = document.createElement("div");
-                msg.className = "transcript-message";
 
-                const speaker = names[turn.speakerTwinId] || "Unknown";
+            // Two speakers, two treatments — the amber avatar belongs to
+            // whoever opens, so the back-and-forth is readable at a glance
+            // from across a room.
+            const speakerOrder = [];
+            transcript.forEach((turn) => {
+                if (!speakerOrder.includes(turn.speakerTwinId)) speakerOrder.push(turn.speakerTwinId);
+            });
+
+            transcript.forEach((turn, i) => {
+                const speaker = names[turn.speakerTwinId] || "Twin";
                 const initials = speaker
                     .split(" ")
                     .map((w) => w[0])
                     .join("")
+                    .slice(0, 2)
                     .toUpperCase();
 
+                const msg = document.createElement("div");
+                msg.className = "turn";
+                msg.style.animationDelay = `${Math.min(i, 6) * 60}ms`;
                 msg.innerHTML = `
-                    <div class="transcript-avatar">${escapeHtml(initials)}</div>
-                    <div class="transcript-bubble">
-                        <div class="transcript-speaker">${escapeHtml(speaker)}</div>
-                        <div class="transcript-text">${escapeHtml(turn.content || "")}</div>
+                    <div class="avatar ${speakerOrder[0] === turn.speakerTwinId ? "a" : "b"}">${escapeHtml(initials)}</div>
+                    <div style="flex:1; min-width:0">
+                        <div class="speaker">${escapeHtml(speaker)}&rsquo;s twin</div>
+                        <div class="bubble">${escapeHtml(turn.content || "")}</div>
                     </div>
                 `;
-                container.appendChild(msg);
+                inner.appendChild(msg);
             });
 
-            // Render final reason
-            if (match.reason) {
-                const reasonEl = document.createElement("div");
-                reasonEl.className = "transcript-reason";
-                reasonEl.innerHTML = `
-                    <div class="transcript-reason-label">Why They Should Meet (score ${match.score ?? "—"})</div>
-                    <div class="transcript-reason-text">${escapeHtml(match.reason)}</div>
-                `;
-                container.appendChild(reasonEl);
-            }
-
             if (transcript.length === 0) {
-                container.innerHTML = `<div class="transcript-placeholder">No transcript yet</div>`;
+                inner.innerHTML = `<div class="rail-empty">The twins are still talking…</div>`;
             }
 
-            transcriptContent.appendChild(container);
+            if (match.reason) {
+                const u = match.usage;
+                const foot = u
+                    ? `<div class="verdict-foot">
+                           <span>${fmt(u.modelCalls || 0)} model calls</span>
+                           <span>${fmt(u.totalTokens || 0)} tokens</span>
+                           <span>${((u.durationMs || 0) / 1000).toFixed(1)}s</span>
+                           <span>${escapeHtml(u.model || "")}${u.effort ? " &middot; " + escapeHtml(u.effort) + " effort" : ""}</span>
+                       </div>`
+                    : "";
+
+                const v = document.createElement("div");
+                v.className = "verdict";
+                v.innerHTML = `
+                    <div class="verdict-label">Why they should meet</div>
+                    <div class="verdict-text">${escapeHtml(match.reason)}</div>
+                    ${foot}
+                `;
+                inner.appendChild(v);
+            }
+
+            transcriptContent.appendChild(inner);
+        }
+
+        function placeholder(title, body) {
+            return `
+                <div class="placeholder">
+                    <div class="private">
+                        <div class="private-mark">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="1.75"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                        </div>
+                        <div class="private-title">${title}</div>
+                        <div class="private-body">${body}</div>
+                    </div>
+                </div>
+            `;
         }
 
         // ============================================================
@@ -457,6 +702,7 @@
         }
 
         // Initial render
+        renderStats();
         renderMatchesList();
         renderTranscript();
     </script>

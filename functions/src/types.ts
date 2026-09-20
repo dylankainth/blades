@@ -229,6 +229,15 @@ export interface JudgeFeedDoc {
   transcript?: NegotiationTurn[];
   names?: Record<string, string>;
   photoUrls?: Record<string, string | null>;
+  /**
+   * What this negotiation cost. Carried on the public-safe copy too —
+   * unlike everything else here it's redaction-safe (token counts, wall
+   * clock, model id), and the dashboard's running total is only honest if
+   * dismissals contribute: they're the majority of runs, and what a
+   * rejection costs is the number the proximity gating is measured
+   * against. See lib/negotiationUsage.ts.
+   */
+  usage?: NegotiationUsage;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

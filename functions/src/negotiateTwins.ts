@@ -351,12 +351,14 @@ export async function runNegotiation(
           transcript,
           names,
           photoUrls,
+          usage,
           updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
         }
       : {
           matchId,
           status: "dismissed",
           score: convergence.score,
+          usage,
           updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
         };
     await judgeFeedRef.set(judgeFeedDoc, { merge: true });
