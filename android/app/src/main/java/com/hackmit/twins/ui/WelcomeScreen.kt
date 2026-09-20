@@ -20,23 +20,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.hackmit.twins.ui.cute.RiseIn
+import com.hackmit.twins.ui.cute.rememberPressBounce
 import com.hackmit.twins.ui.theme.KlickColors
 import com.hackmit.twins.ui.theme.SpaceGroteskFamily
 import com.hackmit.twins.ui.theme.StatusBarStyle
 
 /**
- * App-open screen. Same structural idea as the reference design (~2/3
- * gradient hero with the brand wordmark, ~1/3 white action panel below) —
- * grayscale here instead of blue, and no floating bubbles/noise texture.
+ * App-open screen: a ~2/3 gradient hero (mascot, wordmark, one-line promise)
+ * over a ~1/3 action panel.
  *
- * "Build your twin" leads to Sign In, "I've already got one" leads to
- * Sign Up — per the product decision behind this flow, see MainActivity's
- * post-auth routing: signing IN checks for an existing completed twin and
- * goes straight to Home if found, while signing UP is always a fresh
- * account and always lands in Onboarding.
+ * The two buttons say what they do. "Build your twin" is for someone new and
+ * goes to Sign Up (always a fresh account, always lands in Onboarding). "I
+ * already have a twin" goes to Sign In, which checks for a completed twin and
+ * goes straight to Home if there is one. They used to be wired the other way
+ * round, which made no sense to anyone arriving signed-out, see MainActivity's
+ * post-auth routing for what happens after either.
  */
 @Composable
 fun WelcomeScreen(
@@ -48,7 +51,7 @@ fun WelcomeScreen(
     StatusBarStyle(color = KlickColors.TextSecondary, darkIcons = false)
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(0.68f)
@@ -59,17 +62,36 @@ fun WelcomeScreen(
                             KlickColors.TextPrimary,
                         ),
                     ),
-                ),
-            contentAlignment = Alignment.Center,
+                )
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = "Klick",
-                fontFamily = SpaceGroteskFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 56.sp,
-                letterSpacing = (-0.03).em,
-                color = KlickColors.OnDark,
-            )
+            RiseIn(index = 0) {
+                // Extra room: the mascot's rings and dots draw past its bounds.
+                Box(modifier = Modifier.padding(28.dp)) {
+                    ListeningAvatar(size = 112.dp, onDark = true)
+                }
+            }
+            RiseIn(index = 1) {
+                Text(
+                    text = "Klick",
+                    fontFamily = SpaceGroteskFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 56.sp,
+                    letterSpacing = (-0.03).em,
+                    color = KlickColors.OnDark,
+                )
+            }
+            RiseIn(index = 2) {
+                Text(
+                    text = "Your twin works the room,\nso you only meet the good ones.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = KlickColors.OnDark.copy(alpha = 0.72f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
         }
 
         Column(
@@ -80,30 +102,38 @@ fun WelcomeScreen(
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         ) {
-            Button(
-                onClick = onGoToSignIn,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                contentPadding = PaddingValues(vertical = 18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = KlickColors.TextPrimary,
-                    contentColor = KlickColors.OnDark,
-                ),
-            ) {
-                Text("Build your twin", style = MaterialTheme.typography.titleMedium)
+            val primaryBounce = rememberPressBounce()
+            RiseIn(index = 3) {
+                Button(
+                    onClick = onGoToSignUp,
+                    modifier = Modifier.fillMaxWidth().then(primaryBounce.modifier),
+                    interactionSource = primaryBounce.interactionSource,
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(vertical = 18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = KlickColors.TextPrimary,
+                        contentColor = KlickColors.OnDark,
+                    ),
+                ) {
+                    Text("Build your twin", style = MaterialTheme.typography.titleMedium)
+                }
             }
 
-            OutlinedButton(
-                onClick = onGoToSignUp,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                contentPadding = PaddingValues(vertical = 18.dp),
-                border = BorderStroke(1.5.dp, KlickColors.TextPrimary),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = KlickColors.TextPrimary,
-                ),
-            ) {
-                Text("I've already got one", style = MaterialTheme.typography.titleMedium)
+            val secondaryBounce = rememberPressBounce()
+            RiseIn(index = 4) {
+                OutlinedButton(
+                    onClick = onGoToSignIn,
+                    modifier = Modifier.fillMaxWidth().then(secondaryBounce.modifier),
+                    interactionSource = secondaryBounce.interactionSource,
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(vertical = 18.dp),
+                    border = BorderStroke(1.5.dp, KlickColors.TextPrimary),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = KlickColors.TextPrimary,
+                    ),
+                ) {
+                    Text("I already have a twin", style = MaterialTheme.typography.titleMedium)
+                }
             }
         }
     }

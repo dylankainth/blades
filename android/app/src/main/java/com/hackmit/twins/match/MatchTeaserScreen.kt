@@ -1,5 +1,6 @@
 package com.hackmit.twins.match
 
+import com.hackmit.twins.ui.cute.rememberPressBounce
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -195,10 +196,13 @@ fun MatchTeaserScreen(
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    val declineBounce = rememberPressBounce()
+                    val acceptBounce = rememberPressBounce()
                     OutlinedButton(
                         onClick = { submit(false) },
                         enabled = !submitting,
-                        modifier = Modifier.weight(1f),
+                        interactionSource = declineBounce.interactionSource,
+                        modifier = Modifier.weight(1f).then(declineBounce.modifier),
                         shape = RoundedCornerShape(16.dp),
                         contentPadding = PaddingValues(vertical = 16.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = KlickColors.TextSecondary),
@@ -208,7 +212,8 @@ fun MatchTeaserScreen(
                     Button(
                         onClick = { submit(true) },
                         enabled = !submitting,
-                        modifier = Modifier.weight(1f),
+                        interactionSource = acceptBounce.interactionSource,
+                        modifier = Modifier.weight(1f).then(acceptBounce.modifier),
                         shape = RoundedCornerShape(16.dp),
                         contentPadding = PaddingValues(vertical = 16.dp),
                         colors = ButtonDefaults.buttonColors(

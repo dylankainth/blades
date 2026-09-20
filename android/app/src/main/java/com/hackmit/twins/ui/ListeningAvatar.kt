@@ -23,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
+import com.hackmit.twins.ui.cute.rememberReducedMotion
 import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -39,7 +40,19 @@ import kotlin.random.Random
  * setInterval-based React state, but the timings/motion are matched closely.
  */
 @Composable
-fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
+fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier, onDark: Boolean = false) {
+    // On a dark surface the face flips to light with dark features.
+    val faceColor = if (onDark) KlickColors.OnDark else KlickColors.TextPrimary
+    val featureColor = if (onDark) KlickColors.TextPrimary else KlickColors.OnDark
+    val orbitNeutral = if (onDark) KlickColors.OnDark.copy(alpha = 0.55f) else KlickColors.TextTertiary
+
+    // With system animations off, the infinite transitions below never
+    // advance, which used to leave all three dots stacked in a line on the
+    // right and no rings at all. We respect that setting (no travelling
+    // motion) but give the still frame a composed pose instead: dots spread
+    // around the face and two soft rings. Eyes, blink and mouth still change
+    // — they snap rather than glide — so the twin stays alive.
+    val reducedMotion = rememberReducedMotion()
     val eyeOffsetX = remember { Animatable(0f) }
     val eyeOffsetY = remember { Animatable(0f) }
     var blinking by remember { mutableStateOf(false) }
@@ -121,12 +134,13 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
         val cornerRadius = CornerRadius(s * 0.3f)
 
         // Pulsing rings, behind everything else.
-        listOf(ring0, ring1).forEach { progress ->
+        val ringProgress = if (reducedMotion) STILL_RINGS else listOf(ring0, ring1)
+        ringProgress.forEach { progress ->
             val scale = 0.92f + progress * 0.48f
             val alpha = (0.45f * (1f - progress)).coerceIn(0f, 0.45f)
             val ringSize = s * scale
             drawRoundRect(
-                color = KlickColors.TextPrimary.copy(alpha = alpha),
+                color = faceColor.copy(alpha = alpha),
                 topLeft = Offset(center.x - ringSize / 2, center.y - ringSize / 2),
                 size = Size(ringSize, ringSize),
                 cornerRadius = CornerRadius(ringSize * 0.3f),
@@ -136,9 +150,9 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
 
         // Orbiting dots — two neutral, one accent, matching the mockup.
         val orbitSpecs = listOf(
-            Triple(orbit0, s * 1.05f, KlickColors.TextTertiary),
-            Triple(orbit1, s * 1.19f, KlickColors.TextTertiary),
-            Triple(orbit2, s * 1.33f, KlickColors.Accent),
+            Triple(if (reducedMotion) STILL_ORBITS[0] else orbit0, s * 1.05f, orbitNeutral),
+            Triple(if (reducedMotion) STILL_ORBITS[1] else orbit1, s * 1.19f, orbitNeutral),
+            Triple(if (reducedMotion) STILL_ORBITS[2] else orbit2, s * 1.33f, KlickColors.Accent),
         )
         orbitSpecs.forEach { (angleDeg, radius, color) ->
             val angleRad = Math.toRadians(angleDeg.toDouble())
@@ -151,7 +165,7 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
 
         // Face — rounded square, near-black.
         drawRoundRect(
-            color = KlickColors.TextPrimary,
+            color = faceColor,
             size = this.size,
             cornerRadius = cornerRadius,
         )
@@ -166,7 +180,7 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
         listOf(-1, 1).forEach { side ->
             val eyeX = center.x + side * eyeGap / 2 - eyeW / 2 + eyeOffsetX.value * eyeShift
             drawRoundRect(
-                color = KlickColors.OnDark,
+                color = featureColor,
                 topLeft = Offset(eyeX, eyeY + eyeOffsetY.value * eyeShift),
                 size = Size(eyeW, eyeH * blinkScale),
                 cornerRadius = CornerRadius(eyeW / 2),
@@ -177,10 +191,14 @@ fun ListeningAvatar(size: Dp, modifier: Modifier = Modifier) {
         val mouthW = s * mouthWidthFraction.value
         val mouthH = s * 0.045f
         drawRoundRect(
-            color = KlickColors.OnDark,
+            color = featureColor,
             topLeft = Offset(center.x - mouthW / 2, center.y + s * 0.14f),
             size = Size(mouthW, mouthH),
             cornerRadius = CornerRadius(mouthH / 2),
         )
     }
 }
+
+/** Still-frame pose used when system animations are off. */
+private val STILL_ORBITS = listOf(205f, 330f, 80f)
+private val STILL_RINGS = listOf(0.3f, 0.68f)

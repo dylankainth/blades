@@ -1,6 +1,13 @@
 package com.hackmit.twins.auth
 
 import androidx.compose.foundation.BorderStroke
+import kotlinx.coroutines.delay
+import com.hackmit.twins.ui.cute.rememberPressBounce
+import com.hackmit.twins.ui.cute.RiseIn
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -62,6 +69,9 @@ import kotlinx.coroutines.launch
 private val FieldShape = RoundedCornerShape(16.dp)
 private val ButtonPadding = PaddingValues(vertical = 18.dp)
 
+/** Long enough for the IME to finish resizing the window before we scroll. */
+private const val KEYBOARD_SETTLE_MS = 320L
+
 /**
  * Shared layout for SignInScreen/SignUpScreen: the Klick creature and a
  * headline up top, email/password, a primary submit pill, an "or" rule, a
@@ -70,6 +80,7 @@ private val ButtonPadding = PaddingValues(vertical = 18.dp)
  * Top-aligned and scrollable rather than vertically centred, so the fields
  * stay put and visible when the keyboard opens.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun AuthFormScreen(
     headline: String,
@@ -89,6 +100,19 @@ internal fun AuthFormScreen(
     var errorText by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+
+    // Focusing a field opens the keyboard, which used to leave the submit
+    // button below the fold. After the keyboard has had a moment to take its
+    // space, scroll so the button (and therefore both fields) is on screen.
+    val submitInView = remember { BringIntoViewRequester() }
+    fun revealSubmit() {
+        scope.launch {
+            delay(KEYBOARD_SETTLE_MS)
+            submitInView.bringIntoView()
+        }
+    }
+    val submitBounce = rememberPressBounce()
+    val googleBounce = rememberPressBounce()
 
     fun submit() {
         if (email.isBlank() || password.isBlank() || isSubmitting) return
@@ -137,20 +161,27 @@ internal fun AuthFormScreen(
                 )
             }
 
-            ListeningAvatar(size = 84.dp, modifier = Modifier.padding(top = 20.dp))
+            RiseIn(index = 0) {
+                // Start inset: the mascot's rings and dots draw past its bounds.
+                ListeningAvatar(size = 84.dp, modifier = Modifier.padding(top = 24.dp, start = 14.dp))
+            }
 
-            Text(
-                text = headline,
-                style = MaterialTheme.typography.headlineLarge,
-                color = KlickColors.TextPrimary,
-                modifier = Modifier.padding(top = 24.dp),
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyLarge,
-                color = KlickColors.TextSecondary,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+            RiseIn(index = 1) {
+                Column {
+                    Text(
+                        text = headline,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = KlickColors.TextPrimary,
+                        modifier = Modifier.padding(top = 28.dp),
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = KlickColors.TextSecondary,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
 
             val fieldColors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = KlickColors.TextPrimary,
@@ -176,7 +207,10 @@ internal fun AuthFormScreen(
                 ),
                 shape = FieldShape,
                 colors = fieldColors,
-                modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 32.dp)
+                    .onFocusChanged { if (it.isFocused) revealSubmit() },
             )
 
             OutlinedTextField(
@@ -208,7 +242,10 @@ internal fun AuthFormScreen(
                 keyboardActions = KeyboardActions(onDone = { submit() }),
                 shape = FieldShape,
                 colors = fieldColors,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+                    .onFocusChanged { if (it.isFocused) revealSubmit() },
             )
 
             errorText?.let { message ->
@@ -238,7 +275,12 @@ internal fun AuthFormScreen(
                     disabledContainerColor = KlickColors.TextPrimary,
                     disabledContentColor = KlickColors.OnDark,
                 ),
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+                interactionSource = submitBounce.interactionSource,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp)
+                    .bringIntoViewRequester(submitInView)
+                    .then(submitBounce.modifier),
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(
@@ -275,7 +317,8 @@ internal fun AuthFormScreen(
                     containerColor = KlickColors.CardSurface,
                     contentColor = KlickColors.TextPrimary,
                 ),
-                modifier = Modifier.fillMaxWidth(),
+                interactionSource = googleBounce.interactionSource,
+                modifier = Modifier.fillMaxWidth().then(googleBounce.modifier),
             ) {
                 Image(
                     painter = painterResource(R.drawable.ic_google),
