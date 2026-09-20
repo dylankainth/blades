@@ -79,6 +79,19 @@ export const submitContext = onCall<SubmitContextRequest>(
       existingSocialContext,
     );
 
+    // Who is this? Prefer a name already on the twin, then one the model
+    // pulled out of the text, then the signed-in account's own display name
+    // (Google sign-in always has one). Without this a twin built from text
+    // that never states a name had no name at all — and the badge greeting
+    // ("Hi Dylan"), the match teaser and the dashboard all read this field.
+    const existing = twinSnap.exists ? (twinSnap.data() as TwinProfile) : null;
+    const accountName =
+      typeof request.auth?.token?.name === "string" ? request.auth.token.name.trim() : "";
+    const accountPhoto =
+      typeof request.auth?.token?.picture === "string" ? request.auth.token.picture : "";
+    const resolvedName = existing?.name || extracted.name || accountName || null;
+    const resolvedPhotoUrl = existing?.photoUrl || accountPhoto || null;
+
     const batch = db.batch();
     batch.set(
       submissionRef,
@@ -100,9 +113,9 @@ export const submitContext = onCall<SubmitContextRequest>(
         interests: extracted.interests,
         onboardingComplete: true,
         updatedAt: FieldValue.serverTimestamp(),
-        // Only set if the model actually extracted one — don't clobber a
-        // name set some other way (e.g. Facebook Login) with an empty value.
-        ...(extracted.name ? { name: extracted.name } : {}),
+        // Only written when we actually have one — never clobber with empty.
+        ...(resolvedName ? { name: resolvedName } : {}),
+        ...(resolvedPhotoUrl ? { photoUrl: resolvedPhotoUrl } : {}),
         ...(twinSnap.exists ? {} : { createdAt: FieldValue.serverTimestamp() }),
       },
       { merge: true },
