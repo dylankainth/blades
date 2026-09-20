@@ -48,26 +48,27 @@ export const notifyMatch = onDocumentWritten(
     const sendTo = async (recipient: TwinProfile | null, other: TwinProfile | null) => {
       if (!recipient?.fcmTokens?.length) return;
 
-      const otherName = other?.name || "someone nearby";
-      const body = `${otherName}'s twin and I think you two should talk — ${reason}`;
-
+      // Deliberately doesn't name-drop who it is — the whole point of the
+      // Match Teaser screen (blurred name, real photo, key facts) is that
+      // identity isn't fully revealed until both people approve. Stating
+      // the real name in the notification text itself would undercut that.
       const message = {
         notification: {
-          title: `Say hi to ${otherName}?`,
-          body,
+          title: "Your twin found someone",
+          body: reason,
           ...(other?.photoUrl ? { imageUrl: other.photoUrl } : {}),
         },
         data: {
           type: "twin_match",
           matchId: after.matchId,
           otherTwinId: other?.twinId ?? "",
-          otherName: otherName,
+          otherName: other?.name || "Someone nearby",
           otherPhotoUrl: other?.photoUrl ?? "",
           reason,
-          // Client renders a single tap action ("Say hi") that opens a
-          // human-to-human interaction. It never auto-sends a message or
-          // auto-books anything — see CLAUDE.md guardrails.
-          action: "confirm_say_hi",
+          // Client opens the Match Teaser screen (blurred name, approve/
+          // disapprove) — never an auto-sent message, never an
+          // auto-scheduled meeting. See CLAUDE.md guardrails.
+          action: "open_teaser",
         },
         tokens: recipient.fcmTokens,
       };

@@ -23,8 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.hackmit.twins.ui.theme.KindredColors
-import com.hackmit.twins.ui.theme.KindredDisplayNumeral
+import com.hackmit.twins.ui.theme.KlickColors
+import com.hackmit.twins.ui.theme.KlickDisplayNumeral
 
 /**
  * "Why weren't we a match" screen — the full negotiation transcript between
@@ -32,20 +32,27 @@ import com.hackmit.twins.ui.theme.KindredDisplayNumeral
  * on. Read-only, no actions: this is transparency into what the twins
  * actually discussed, not something to act on (that's MatchScreen's job,
  * for actual matches).
+ *
+ * Only ever reached for a non-match (see MainActivity's routing), so the
+ * title deliberately never shows the other person's real name — a
+ * rejected candidate isn't identified, even to the person who tapped in.
+ * The transcript body below may still reference their name in-character
+ * (the twins' own dialogue), which is a conscious, narrower trade-off —
+ * see CLAUDE.md / the Firestore rules comment on matches/judge_feed for
+ * the fuller anonymization story.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NegotiationDetailScreen(
-    otherName: String,
     detail: NegotiationDetail?,
 ) {
     Scaffold(
-        containerColor = KindredColors.PageBackground,
+        containerColor = KlickColors.PageBackground,
         topBar = {
             TopAppBar(
-                title = { Text(otherName) },
+                title = { Text("Someone nearby") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KindredColors.PageBackground,
+                    containerColor = KlickColors.PageBackground,
                 ),
             )
         },
@@ -55,7 +62,7 @@ fun NegotiationDetailScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator(color = KindredColors.TextPrimary)
+                CircularProgressIndicator(color = KlickColors.TextPrimary)
             }
             return@Scaffold
         }
@@ -75,18 +82,18 @@ fun NegotiationDetailScreen(
                 Text(
                     text = "Alignment score",
                     style = MaterialTheme.typography.labelLarge,
-                    color = KindredColors.TextSecondary,
+                    color = KlickColors.TextSecondary,
                 )
                 Text(
                     text = "${detail.score ?: 0}",
-                    style = KindredDisplayNumeral,
-                    color = KindredColors.TextPrimary,
+                    style = KlickDisplayNumeral,
+                    color = KlickColors.TextPrimary,
                 )
                 if (!detail.reason.isNullOrBlank()) {
                     Text(
                         text = detail.reason,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = KindredColors.TextSecondary,
+                        color = KlickColors.TextSecondary,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
@@ -102,15 +109,15 @@ private fun TranscriptBubble(turn: NegotiationTurnUi) {
         Card(
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (turn.fromMe) KindredColors.TextPrimary else KindredColors.CardSurface,
+                containerColor = if (turn.fromMe) KlickColors.TextPrimary else KlickColors.CardSurface,
             ),
-            border = if (turn.fromMe) null else BorderStroke(1.dp, KindredColors.Border),
+            border = if (turn.fromMe) null else BorderStroke(1.dp, KlickColors.Border),
         ) {
             Text(
                 text = turn.text,
                 modifier = Modifier.padding(14.dp),
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (turn.fromMe) KindredColors.OnDark else KindredColors.TextPrimary,
+                color = if (turn.fromMe) KlickColors.OnDark else KlickColors.TextPrimary,
             )
         }
     }

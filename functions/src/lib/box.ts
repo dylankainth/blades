@@ -89,18 +89,28 @@ export function pickLiveMatch(
   );
   if (met) return { state: "met", match: met };
 
+  // A badge faces strangers, so it only names the other person once BOTH
+  // humans approved the reveal (submitMatchApproval.ts). Docs written before
+  // that flow existed have no revealStatus and count as revealed.
   const greeting = newestFirst.find(
     (m) =>
       m.status === "confirmed" &&
+      (m.revealStatus ?? "revealed") === "revealed" &&
       !m.metAt &&
       ageMs(m.updatedAt, now) < MATCH_SHOW_MS,
   );
   if (greeting) return { state: "match", match: greeting };
 
+  // Twins still talking, or twins agreed and the humans are deciding on their
+  // phones: either way the badge just looks busy and gives nothing away. A
+  // cancelled reveal falls through to idle, quietly, by design.
   const negotiating = newestFirst.find(
     (m) =>
-      m.status === "negotiating" &&
-      ageMs(m.updatedAt, now) < NEGOTIATING_SHOW_MS,
+      (m.status === "negotiating" &&
+        ageMs(m.updatedAt, now) < NEGOTIATING_SHOW_MS) ||
+      (m.status === "confirmed" &&
+        m.revealStatus === "pending" &&
+        ageMs(m.updatedAt, now) < MATCH_SHOW_MS),
   );
   if (negotiating) return { state: "negotiating", match: negotiating };
 

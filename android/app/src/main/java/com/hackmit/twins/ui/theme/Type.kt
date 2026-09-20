@@ -36,7 +36,7 @@ val SpaceGroteskFamily = FontFamily(
  * directly for hero numbers/names rather than a MaterialTheme.typography
  * slot, since nothing in the default Material scale gets this large.
  */
-val KindredDisplayNumeral = TextStyle(
+val KlickDisplayNumeral = TextStyle(
     fontFamily = SpaceGroteskFamily,
     fontWeight = FontWeight.Bold,
     fontSize = 72.sp,
@@ -44,7 +44,7 @@ val KindredDisplayNumeral = TextStyle(
     letterSpacing = (-0.04).em,
 )
 
-val KindredTypography = Typography(
+val KlickTypography = Typography(
     headlineLarge = TextStyle(
         fontFamily = SpaceGroteskFamily,
         fontWeight = FontWeight.Bold,

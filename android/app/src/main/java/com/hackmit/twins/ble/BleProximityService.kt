@@ -30,6 +30,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
@@ -62,6 +65,12 @@ class BleProximityService : Service() {
     // too large for a legacy BLE advertisement packet's 31-byte budget).
     private var myToken: String = ""
 
+    // Once a token is resolved it's cached here (token -> twinId), so later
+    // scan results for the SAME token can update the live RSSI map below
+    // without a repeat Firestore round-trip — that's what RadarScreen needs
+    // (continuous "getting closer/farther"). The check-in write is rate
+    // limited separately: see markSeen() in the companion object.
+    private val resolvedTokens = ConcurrentHashMap<String, String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -103,6 +112,7 @@ class BleProximityService : Service() {
         stopAdvertising()
         stopScanning()
         serviceScope.cancel()
+        _nearbyRssi.value = emptyMap()
     }
 
     /**
@@ -217,26 +227,44 @@ class BleProximityService : Service() {
             if (token == myToken) return // shouldn't happen, but guard anyway
             val myId = myTwinId ?: return
 
-            // Proximity means "walked up to me", not "somewhere in the hall":
-            // BLE adverts carry 20 m+ indoors, so gate on signal strength.
-            if (result.rssi < MIN_RSSI_DBM) return
+            val cachedTwinId = resolvedTokens[token]
+            if (cachedTwinId != null) {
+                // Already resolved on an earlier scan — just update live
+                // RSSI, no repeat Firestore call. This is what drives
+                // RadarScreen's "getting closer/farther" feedback.
+                _nearbyRssi.update { it + (cachedTwinId to result.rssi) }
+                maybeCheckin(myId, cachedTwinId, token, result.rssi)
+                return
+            }
 
-            if (markSeen(token)) {
-                Log.i(TAG, "Token $token in range at ${result.rssi} dBm")
-                // Resolve the short token to a real twinId via Firestore —
-                // see BleSessionRepository for why this indirection exists.
-                serviceScope.launch {
-                    val otherTwinId = BleSessionRepository.resolveToken(token)
-                    if (otherTwinId != null && otherTwinId != myId) {
-                        onTwinDetected(myId, otherTwinId)
-                    }
-                }
+            // First time seeing this token: resolve it once via Firestore
+            // (see BleSessionRepository for why this indirection exists —
+            // a raw Firebase uid doesn't fit a BLE advertisement packet).
+            serviceScope.launch {
+                val otherTwinId = BleSessionRepository.resolveToken(token) ?: return@launch
+                if (otherTwinId == myId) return@launch
+                resolvedTokens[token] = otherTwinId
+                _nearbyRssi.update { it + (otherTwinId to result.rssi) }
+                maybeCheckin(myId, otherTwinId, token, result.rssi)
             }
         }
 
         override fun onScanFailed(errorCode: Int) {
             Log.e(TAG, "BLE scan failed, errorCode=$errorCode")
         }
+    }
+
+    /**
+     * The radar wants every reading; a check-in (which kicks off a
+     * negotiation) should only happen when someone has actually walked up,
+     * and at most once per SEEN_TTL_MS per token. BLE adverts carry 20 m+
+     * indoors, so "detected" alone is not "nearby".
+     */
+    private fun maybeCheckin(myId: String, otherTwinId: String, token: String, rssi: Int) {
+        if (rssi < MIN_RSSI_DBM) return
+        if (!markSeen(token)) return
+        Log.i(TAG, "Token $token in range at $rssi dBm")
+        onTwinDetected(myId, otherTwinId)
     }
 
     private fun onTwinDetected(myId: String, otherTwinId: String) {
@@ -311,11 +339,10 @@ class BleProximityService : Service() {
         /** Re-report a token we keep seeing at most this often. */
         private const val SEEN_TTL_MS = 60_000L
 
-        // De-dupe: scan results fire many times a second for one device, and
-        // each report costs a Firestore lookup + write. Static so the Home
-        // screen's "Reset demo" can clear it without restarting the service.
-        // Re-reports are cheap server-side: runNegotiation skips a pair that
-        // already has a match doc.
+        // Rate limit for the check-in write (NOT the radar, which wants every
+        // reading). Static so the Home screen's "Reset demo" can clear it
+        // without restarting the service. Re-reports are cheap server-side:
+        // runNegotiation skips a pair that already has a match doc.
         private val lastSeenAtMs = ConcurrentHashMap<String, Long>()
 
         private fun markSeen(token: String): Boolean {
@@ -327,6 +354,15 @@ class BleProximityService : Service() {
         }
 
         fun forgetSeenTokens() = lastSeenAtMs.clear()
+
+        // Latest RSSI (dBm) per resolved nearby twinId — a rougher-but-
+        // real stand-in for "distance" (no UWB on these phones, just BLE
+        // signal strength, which is noisy: affected by orientation,
+        // obstacles, and crowd density — good enough for a "warmer/
+        // colder" radar affordance, not precise distance). Written from
+        // this Service's scanCallback above; RadarScreen collects it.
+        private val _nearbyRssi = MutableStateFlow<Map<String, Int>>(emptyMap())
+        val nearbyRssi: StateFlow<Map<String, Int>> = _nearbyRssi
 
         private fun tokenToBytes(token: String): ByteArray =
             ByteArray(token.length / 2) { i ->

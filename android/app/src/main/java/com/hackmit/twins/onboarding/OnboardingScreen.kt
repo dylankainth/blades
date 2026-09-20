@@ -49,7 +49,7 @@ import com.facebook.login.widget.LoginButton
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
-import com.hackmit.twins.ui.theme.KindredColors
+import com.hackmit.twins.ui.theme.KlickColors
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -138,12 +138,12 @@ fun OnboardingScreen(
     }
 
     Scaffold(
-        containerColor = KindredColors.PageBackground,
+        containerColor = KlickColors.PageBackground,
         topBar = {
             TopAppBar(
                 title = { Text("Build your twin") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KindredColors.PageBackground,
+                    containerColor = KlickColors.PageBackground,
                 ),
             )
         },
@@ -156,15 +156,15 @@ fun OnboardingScreen(
             Card(
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = KindredColors.CardSurface),
-                border = BorderStroke(1.dp, KindredColors.Border),
+                colors = CardDefaults.cardColors(containerColor = KlickColors.CardSurface),
+                border = BorderStroke(1.dp, KlickColors.Border),
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         text = fbName?.let { "Signed in as $it" }
                             ?: "Optional: add your name + photo via Facebook",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = KindredColors.TextSecondary,
+                        color = KlickColors.TextSecondary,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     AndroidView(
@@ -221,10 +221,10 @@ fun OnboardingScreen(
                     placeholder = { Text("Type a message...") },
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = KindredColors.TextPrimary,
-                        unfocusedBorderColor = KindredColors.Border,
-                        focusedContainerColor = KindredColors.CardSurface,
-                        unfocusedContainerColor = KindredColors.CardSurface,
+                        focusedBorderColor = KlickColors.TextPrimary,
+                        unfocusedBorderColor = KlickColors.Border,
+                        focusedContainerColor = KlickColors.CardSurface,
+                        unfocusedContainerColor = KlickColors.CardSurface,
                     ),
                 )
                 Spacer(modifier = Modifier.width(10.dp))
@@ -233,8 +233,8 @@ fun OnboardingScreen(
                     enabled = !isSending,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = KindredColors.TextPrimary,
-                        contentColor = KindredColors.OnDark,
+                        containerColor = KlickColors.TextPrimary,
+                        contentColor = KlickColors.OnDark,
                     ),
                 ) {
                     Text("Send", style = MaterialTheme.typography.labelLarge)
@@ -251,15 +251,15 @@ private fun ChatBubble(message: ChatMessage) {
         Card(
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (message.fromUser) KindredColors.TextPrimary else KindredColors.CardSurface,
+                containerColor = if (message.fromUser) KlickColors.TextPrimary else KlickColors.CardSurface,
             ),
-            border = if (message.fromUser) null else BorderStroke(1.dp, KindredColors.Border),
+            border = if (message.fromUser) null else BorderStroke(1.dp, KlickColors.Border),
         ) {
             Text(
                 text = message.text,
                 modifier = Modifier.padding(14.dp),
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (message.fromUser) KindredColors.OnDark else KindredColors.TextPrimary,
+                color = if (message.fromUser) KlickColors.OnDark else KlickColors.TextPrimary,
             )
         }
     }
